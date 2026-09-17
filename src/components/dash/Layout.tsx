@@ -8,6 +8,12 @@ import EC2 from "./nodes/ec2/EC2";
 import SQS from "./nodes/sqs/SQS";
 import ELB from "./nodes/elb/ELB";
 import ASG from "./frames/asg/ASG";
+import Aurora from "./nodes/aurora/aurora";
+import Cloudfront from "./nodes/cloudfront/cloudfront";
+import Fargate from "./nodes/fargate/fargate";
+import Lambda from "./nodes/lambda/lambda";
+import Route53 from "./nodes/route53/route53";
+import S3 from "./nodes/s3/s3";
 
 gsap.registerPlugin(Draggable, InertiaPlugin);
 
@@ -44,6 +50,13 @@ export default function NodeContainer() {
       <ASG n={8}>
         <EC2 />
       </ASG>
+      <Aurora />
+      <Cloudfront />
+      <ELB />
+      <Fargate />
+      <Lambda />
+      <Route53 />
+      <S3 />
     </div>
   );
 }

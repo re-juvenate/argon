@@ -45,9 +45,9 @@ export default function EnumDropdown({
   }));
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-1">
       <Dropdown label={label} options={generatedOptions} />
-      <div className="space-y-3 pt-1">{children[activeIndex]}</div>
+      <div className="space-y-1">{children[activeIndex]}</div>
     </div>
   );
 }

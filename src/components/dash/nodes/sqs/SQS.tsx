@@ -28,7 +28,7 @@ const Queue = ({ n, speed, state }: QueueProps) => {
         x: containerWidth,
         duration: speed,
         repeat: -1,
-        ease: "back.out",
+        ease: "none",
         stagger: {
           each: speed / n,
           repeat: -1,
@@ -57,7 +57,7 @@ const SQS = () => {
     <Node
       color="#c72161"
       name="SQS"
-      visibleChildren={<Queue n={10} speed={5} state={true} />}
+      visibleChildren={<Queue n={10} speed={2} state={true} />}
     ></Node>
   );
 };

@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Frame from "../../Frame";
-import EC2 from "../../nodes/ec2/EC2";
 
-const ASG = ({ n }: { n: number }) => {
+gsap.registerPlugin(useGSAP);
+
+const ASG = ({ n, children }: { n: number; children: ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [instances, setInstances] = useState<string[]>([]);
   const prevN = useRef(n);
@@ -21,18 +22,18 @@ const ASG = ({ n }: { n: number }) => {
 
   useGSAP(
     () => {
-      const elements = containerRef.current?.querySelectorAll(".ec2-instance");
-
+      const elements = containerRef.current?.querySelectorAll(".itemmmmy");
       if (!elements) return;
 
       const previous = prevN.current;
+      const current = Array.from(elements);
 
-      // Increment
+      // INCREMENT
       if (n > previous) {
-        const newElements = Array.from(elements).slice(previous);
+        const added = current.slice(previous);
 
         gsap.fromTo(
-          newElements,
+          added,
           {
             scale: 0,
             opacity: 0,
@@ -47,26 +48,43 @@ const ASG = ({ n }: { n: number }) => {
         );
       }
 
-      // Decrement
-      if (n < previous) {
-        const removedElements = Array.from(elements).slice(n);
-
-        gsap.to(removedElements, {
-          scale: 0,
-          opacity: 0,
-          duration: 0.2,
-          stagger: 0.05,
-          ease: "power2.in",
-          onComplete: () => {
-            setInstances((prev) => prev.slice(0, n));
-          },
-        });
-      }
-
       prevN.current = n;
     },
     {
-      dependencies: [n, instances],
+      dependencies: [instances],
+      scope: containerRef,
+    },
+  );
+
+  useGSAP(
+    () => {
+      if (n >= prevN.current) return;
+      const elements = containerRef.current?.querySelectorAll(".itemmmmy");
+      if (!elements) return;
+
+      const current = Array.from(elements);
+      const count = prevN.current - n;
+      const top = current.slice(0, Math.ceil(count / 2));
+      const bottom = current.slice(-Math.floor(count / 2));
+      const removed = [...top, ...bottom];
+
+      gsap.to(removed, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.2,
+        stagger: 0.05,
+        ease: "power2.in",
+        onComplete: () => {
+          const removeIds = new Set(removed.map((el) => el.getAttribute("data-id")));
+
+          setInstances((prev) => prev.filter((id) => !removeIds.has(id)));
+
+          prevN.current = n;
+        },
+      });
+    },
+    {
+      dependencies: [n],
       scope: containerRef,
     },
   );
@@ -75,8 +93,8 @@ const ASG = ({ n }: { n: number }) => {
     <div ref={containerRef}>
       <Frame name="ASG">
         {instances.map((id) => (
-          <div key={id} className="ec2-instance">
-            <EC2 />
+          <div key={id} data-id={id} className="itemmmmy">
+            {children}
           </div>
         ))}
       </Frame>

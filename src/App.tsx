@@ -5,11 +5,13 @@ import ASG from "./components/dash/frames/asg/ASG";
 
 const App = () => {
   return (
-    <div className="bg-background h-screen w-screen">
+    <div className="bg-background min-h-screen w-screen">
       <EC2 />
       <SQS />
       <ELB />
-      <ASG n={3} />
+      <ASG n={8}>
+        <EC2 />
+      </ASG>
     </div>
   );
 };

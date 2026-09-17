@@ -19,9 +19,9 @@ const Frame = ({ name, children }: FrameProps) => {
   const [collapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="w-fit border-2 border-dashed border-border flex flex-col">
+    <div className="w-fit border-2 border-dashed border-border flex flex-col draggable-node absolute">
       <div
-        className="text-sm py-1 px-3 text-[#999999] cursor-pointer select-none flex items-center justify-between gap-2"
+        className="draggable-node-handle text-sm py-1 px-3 text-[#999999] cursor-pointer select-none flex items-center justify-between gap-2"
         onClick={() => setIsCollapsed(!collapsed)}
       >
         <span>{name}</span>

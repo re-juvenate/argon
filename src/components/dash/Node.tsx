@@ -1,6 +1,8 @@
 import { useState, Activity, forwardRef } from "react";
 import type { ReactNode } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
+import { useFrame } from "./Frame";
+import cn from "cnfast";
 
 interface NodeProps {
   name: string;
@@ -13,15 +15,22 @@ interface NodeProps {
 const Node = forwardRef<HTMLDivElement, NodeProps>(
   ({ name, color, visibleChildren, children, parent }, ref) => {
     const [isOpen, setIsOpen] = useState(false);
+    const inFrame = useFrame();
 
     return (
       <div
         ref={ref}
-        className="w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2"
+        className={cn(
+          "w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2",
+          !inFrame && "draggable-node absolute",
+        )}
       >
         <div
           style={{ backgroundColor: color }}
-          className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2"
+          className={cn(
+            "text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2",
+            !inFrame && "draggable-node-handle",
+          )}
           onClick={() => setIsOpen(!isOpen)}
         >
           <span>{name}</span>

@@ -3,4 +3,5 @@
 @theme inline {
   --color-node: #303030;
   --color-background: #1a1a1a;
+  --color-border: #444444;
 }

@@ -21,32 +21,30 @@ export default function BlenderCheckbox({
   };
 
   return (
-    <div className="w-full max-w-sm p-6 bg-[#1d1d1d] text-[#e0e0e0] font-sans text-sm select-none">
-      <label className="flex items-center gap-2 cursor-pointer group w-fit">
-        <div className="relative">
-          <input type="checkbox" checked={isChecked} onChange={handleToggle} className="sr-only" />
-          <div
-            className={cn(
-              "w-4.5 h-4.5 rounded-sm border flex items-center justify-center transition-colors duration-700",
-              isChecked
-                ? "bg-[#3d6ca4] border-[#2a4d77] group-hover:bg-[#477cb9]"
-                : "bg-[#2e2e2e] border-[#444444] group-hover:bg-[#353535]",
-            )}
-          >
-            {isChecked && (
-              <svg
-                className="w-3.5 h-3.5 text-white stroke-[3.5]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </div>
+    <label className="flex items-center gap-2 cursor-pointer group w-fit">
+      <div className="relative">
+        <input type="checkbox" checked={isChecked} onChange={handleToggle} className="sr-only" />
+        <div
+          className={cn(
+            "w-4.5 h-4.5 rounded-sm border flex items-center justify-center transition-colors",
+            isChecked
+              ? "bg-[#3d6ca4] border-[#2a4d77] group-hover:bg-[#477cb9]"
+              : "bg-[#2e2e2e] border-[#444444] group-hover:bg-[#353535]",
+          )}
+        >
+          {isChecked && (
+            <svg
+              className="w-3.5 h-3.5 text-white stroke-[3.5]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
         </div>
-        <span className="text-[#e0e0e0] tracking-wide text-sm">{label}</span>
-      </label>
-    </div>
+      </div>
+      <span className="text-[#e0e0e0] tracking-wide text-sm">{label}</span>
+    </label>
   );
 }

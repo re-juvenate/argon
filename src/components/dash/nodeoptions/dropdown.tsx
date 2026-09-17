@@ -149,7 +149,7 @@ export default function Dropdown({
           aria-label={label}
           className="absolute left-0 w-full mt-1 bg-[#181818] border border-[#101010] rounded shadow-2xl z-50 py-1"
         >
-          <div className="px-3 py-1 text-sm font-sans text-[#666666] tracking-wide cursor-default">
+          <div className="px-3 py-1 text-sm font-sans text-[#666666] tracking-wide cursor-default border-b border-border">
             {label}
           </div>
 

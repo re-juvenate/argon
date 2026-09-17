@@ -1,64 +1,23 @@
 import React, { useState, useRef, useEffect, useId } from "react";
 import { cn } from "cnfast";
 
-export const SubsurfaceMethod = {
-  Burley: "burley",
-  RandomWalk: "random_walk",
-  Skin: "skin",
-} as const;
-
-export type SubsurfaceMethod = (typeof SubsurfaceMethod)[keyof typeof SubsurfaceMethod];
-
-interface DropdownOption {
-  value: SubsurfaceMethod;
-  label: string;
-  shortcutIdx: number;
+export interface Option {
+  name: string;
+  onSelect?: () => void;
 }
-
-const OPTIONS: DropdownOption[] = [
-  { value: SubsurfaceMethod.Burley, label: "Christensen-Burley", shortcutIdx: 0 },
-  { value: SubsurfaceMethod.RandomWalk, label: "Random Walk", shortcutIdx: 0 },
-  { value: SubsurfaceMethod.Skin, label: "Random Walk (Skin)", shortcutIdx: 7 },
-];
-
-interface ShortcutLabelProps {
-  label: string;
-  index: number;
-}
-
-const ShortcutLabel = React.memo(({ label, index }: ShortcutLabelProps) => {
-  if (index === undefined || index < 0 || index >= label.length) {
-    return <span>{label}</span>;
-  }
-  return (
-    <span>
-      {label.substring(0, index)}
-      <span className="underline decoration-1 underline-offset-2">{label[index]}</span>
-      {label.substring(index + 1)}
-    </span>
-  );
-});
-ShortcutLabel.displayName = "ShortcutLabel";
 
 interface BlenderDropdownProps {
   label?: string;
-  options?: DropdownOption[];
-  defaultValue?: SubsurfaceMethod;
-  onChange?: (value: SubsurfaceMethod) => void;
+  options?: Option[];
 }
 
-export default function Dropdown({
-  label = "Subsurface Method",
-  options = OPTIONS,
-  defaultValue = SubsurfaceMethod.RandomWalk,
-  onChange,
-}: BlenderDropdownProps) {
+export default function Dropdown({ label = "Options", options = [] }: BlenderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedValue, setSelectedValue] = useState<SubsurfaceMethod>(defaultValue);
+  const [selectedOption, setSelectedOption] = useState<Option | undefined>(options[0]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
-  const currentOption = options.find((opt) => opt.value === selectedValue) || options[0];
+  const currentOption = selectedOption || options[0];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,6 +37,7 @@ export default function Dropdown({
       setIsOpen(false);
       dropdownRef.current?.querySelector("button")?.focus();
     }
+
     if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
       if (!isOpen) {
         e.preventDefault();
@@ -85,7 +45,7 @@ export default function Dropdown({
         return;
       }
 
-      const currentIndex = options.findIndex((opt) => opt.value === selectedValue);
+      const currentIndex = options.indexOf(currentOption);
       let nextIndex = currentIndex;
 
       if (e.key === "ArrowDown") {
@@ -96,19 +56,19 @@ export default function Dropdown({
         e.preventDefault();
       } else if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        handleSelect(options[currentIndex].value);
+        handleSelect(currentOption);
       }
 
       if (nextIndex !== currentIndex) {
-        setSelectedValue(options[nextIndex].value);
+        setSelectedOption(options[nextIndex]);
       }
     }
   };
 
-  const handleSelect = (value: SubsurfaceMethod) => {
-    setSelectedValue(value);
+  const handleSelect = (option: Option) => {
+    setSelectedOption(option);
     setIsOpen(false);
-    onChange?.(value);
+    option.onSelect?.();
     dropdownRef.current?.querySelector("button")?.focus();
   };
 
@@ -127,7 +87,8 @@ export default function Dropdown({
             : "bg-[#2e2e2e] border-[#151515] hover:bg-[#353535] text-[#e0e0e0]",
         )}
       >
-        <span>{currentOption?.label}</span>
+        <span>{currentOption?.name}</span>
+
         <svg
           className={cn("w-3 h-3 transition-colors", isOpen ? "text-white" : "text-[#a3a3a3]")}
           viewBox="0 0 20 20"
@@ -136,7 +97,7 @@ export default function Dropdown({
         >
           <path
             fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 010 1.414z"
             clipRule="evenodd"
           />
         </svg>
@@ -155,19 +116,20 @@ export default function Dropdown({
 
           <div className="flex flex-col gap-px">
             {options.map((option) => {
-              const isSelected = option.value === selectedValue;
+              const isSelected = option === currentOption;
+
               return (
                 <button
-                  key={option.value}
+                  key={option.name}
                   role="option"
                   aria-selected={isSelected}
-                  onClick={() => handleSelect(option.value)}
+                  onClick={() => handleSelect(option)}
                   className={cn(
                     "flex items-center text-left h-7 px-4 text-sm font-sans tracking-wide outline-none transition-colors duration-75 text-[#d0d0d0] hover:bg-[#477cb9] hover:text-white",
                     isSelected && "bg-[#3d6ca4] text-white mx-0.5 rounded w-[calc(100%-4px)]",
                   )}
                 >
-                  <ShortcutLabel label={option.label} index={option.shortcutIdx} />
+                  {option.name}
                 </button>
               );
             })}

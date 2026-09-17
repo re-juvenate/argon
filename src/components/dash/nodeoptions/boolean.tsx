@@ -7,7 +7,7 @@ interface BlenderCheckboxProps {
   onChange?: (checked: boolean) => void;
 }
 
-export default function BlenderCheckbox({
+export default function Boolean({
   label = "Boolean",
   defaultChecked = true,
   onChange,

@@ -8,7 +8,14 @@ const App = () => {
     <div className="bg-background h-screen w-screen">
       <Node name="EC2" color="#e66d00" />
       <Slider label="Anisotropic Rotation" min={0} max={100} defaultValue={1.0} step={1} />
-      <Dropdown />
+      <Dropdown
+        label="Subsurface Method"
+        options={[
+          { name: "Christensen-Burley" },
+          { name: "Random Walk" },
+          { name: "Random Walk (Skin)" },
+        ]}
+      />
       <Boolean />
     </div>
   );

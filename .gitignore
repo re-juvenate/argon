@@ -52,3 +52,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Reference files
+.references/

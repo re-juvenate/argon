@@ -1,0 +1,10 @@
+Storage Class,Storage Fee per GB Month (USD),Retrieval Fee per GB (USD),Minimum Storage Duration (Days),Minimum Object Size (KB),Availability Design
+S3 Standard,0.023,0.00,0,0,99.99%
+S3 Intelligent-Tiering (Frequent),0.023,0.00,0,128,99.90%
+S3 Intelligent-Tiering (Infrequent),0.0125,0.00,30,128,99.90%
+S3 Standard-IA,0.0125,0.01,30,128,99.90%
+S3 One Zone-IA,0.0100,0.01,30,128,99.50%
+S3 Glacier Instant Retrieval,0.0040,0.03,90,128,99.90%
+S3 Glacier Flexible Retrieval,0.0036,0.01,90,40,99.99%
+S3 Glacier Deep Archive,0.00099,0.002,180,40,99.99%
+S3 Express One Zone,0.1600,0.00,0,0,99.95%

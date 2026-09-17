@@ -1,0 +1,9 @@
+"PurchasingOption","BaselineDiscountPct","CommitmentTermYears","ReclaimableByAWS","HardwareIsolation"
+"On-Demand",0,0,0,0
+"Savings Plans (Compute)",66,1,0,0
+"Savings Plans (EC2 Instance)",72,1,0,0
+"Reserved Instances (Standard)",72,1,0,0
+"Reserved Instances (Convertible)",54,1,0,0
+"Spot Instances",90,0,1,0
+"Dedicated Instances",0,0,0,1
+"Dedicated Hosts",0,0,0,2

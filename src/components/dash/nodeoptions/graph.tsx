@@ -1,7 +1,7 @@
 import { AreaChart } from "@tremor/react";
 
 interface ChartDataItem {
-  date: string;
+  time: string;
   Throughput: number;
   "Time taken": number;
 }
@@ -17,9 +17,9 @@ const Graph = ({ chartdata }: GraphProps) => {
 
   return (
     <AreaChart
-      className="h-80"
+      className="h-80 fill-white text-white"
       data={chartdata}
-      index="date"
+      index="time"
       categories={["Throughput", "Time taken"]}
       colors={["blue", "emerald"]}
       valueFormatter={numberFormatter}

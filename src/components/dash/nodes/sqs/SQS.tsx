@@ -1,7 +1,11 @@
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
-import { useRef, type CSSProperties } from "react";
+import Dropdown from "../../nodeoptions/dropdown";
+import Boolean from "../../nodeoptions/boolean";
+import type { Option } from "../../nodeoptions/dropdown";
+import { useRef, useState, type CSSProperties } from "react";
 import gsap from "gsap";
+import { QueueType, SQS_DEFAULTS, type SQSConfig } from "#math/sqs/throughput";
 
 interface QueueProps {
   n: number;
@@ -52,14 +56,46 @@ const Queue = ({ n, speed, state }: QueueProps) => {
   );
 };
 
+// Controls map onto the SQSConfig inputs of math/sqs/throughput:
+// queueType (dropdown) and highThroughput (boolean, FIFO only). Region is not
+// user-settable here; it is inferred from the parent.
 const SQS = ({ style }: { style?: CSSProperties }) => {
+  const [queueType, setQueueType] = useState(QueueType.Standard);
+  const [, setConfig] = useState<SQSConfig>(SQS_DEFAULTS);
+
+  const queueOptions: Option[] = [
+    {
+      name: "Standard",
+      onSelect: () => {
+        setQueueType(QueueType.Standard);
+        setConfig((c) => ({ ...c, queueType: QueueType.Standard }));
+      },
+    },
+    {
+      name: "FIFO",
+      onSelect: () => {
+        setQueueType(QueueType.FIFO);
+        setConfig((c) => ({ ...c, queueType: QueueType.FIFO }));
+      },
+    },
+  ];
+
   return (
     <Node
       style={style}
       color="#c72161"
       name="SQS"
       visibleChildren={<Queue n={10} speed={2} state={true} />}
-    ></Node>
+    >
+      <Dropdown label="Queue Type" options={queueOptions} />
+      {queueType === QueueType.FIFO && (
+        <Boolean
+          label="High Throughput"
+          defaultChecked={SQS_DEFAULTS.highThroughput}
+          onChange={(highThroughput) => setConfig((c) => ({ ...c, highThroughput }))}
+        />
+      )}
+    </Node>
   );
 };
 

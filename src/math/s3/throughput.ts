@@ -1,6 +1,6 @@
 import { ModelTier, type ServiceModel } from "../../types/math";
 import { bytes, cap, KiB, mbps, note, offered, pipe, resolve, splitEven, toMbps } from "../utilities";
-import { S3StorageTier } from "./cost";
+import { GlacierRetrievalSpeed, S3StorageTier } from "./cost";
 
 // S3. At setup you choose the storage class. Request rate is AWS's per-prefix quota
 // (3,500 write / 5,500 read per second); S3 has no byte cap of its own.
@@ -8,9 +8,11 @@ import { S3StorageTier } from "./cost";
 
 export interface S3Config {
   tier?: S3StorageTier;
+  // archive tiers only
+  retrieval?: GlacierRetrievalSpeed;
 }
 
-export const S3_DEFAULTS: Required<S3Config> = { tier: S3StorageTier.STANDARD };
+export const S3_DEFAULTS: Required<S3Config> = { tier: S3StorageTier.STANDARD, retrieval: GlacierRetrievalSpeed.STANDARD };
 
 export const S3_FIXED = { writeRpsPerPrefix: 3500, readRpsPerPrefix: 5500 } as const;
 
@@ -21,7 +23,7 @@ export const S3_ASSUMED = {
 } as const;
 
 // Glacier Flexible / Deep Archive are restore-then-read; no synchronous throughput.
-const ARCHIVE_TIERS: ReadonlySet<S3StorageTier> = new Set([S3StorageTier.GLACIER_FLEXIBLE, S3StorageTier.DEEP_ARCHIVE]);
+export const ARCHIVE_TIERS: ReadonlySet<S3StorageTier> = new Set([S3StorageTier.GLACIER_FLEXIBLE, S3StorageTier.DEEP_ARCHIVE]);
 
 export function requestsPerSecond(): number {
   const a = S3_ASSUMED;

@@ -33,6 +33,11 @@ export function taskBaselineMbps(vcpu: number, memGiB: number): { mbps: Mbps; ex
   return { mbps: mbps(f.tier2Cap.value * (vcpu / 4)), extrapolated: true };
 }
 
+// what the last tick granted; steady state = burst
+export function taskAvailableMbps(baseline: Mbps, burst: Mbps, state?: CreditState): Mbps {
+  return state?.availableMbps ?? (state !== undefined && state.creditsMbit <= 0 ? baseline : burst);
+}
+
 export function taskBurstMbps(vcpu: number, memGiB: number): Mbps {
   return vcpu >= 2 || (vcpu >= 1 && memGiB >= 8) ? FARGATE_FIXED.burstLarge : FARGATE_FIXED.burstSmall;
 }

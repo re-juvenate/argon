@@ -9,7 +9,7 @@ export interface ASGConfig extends EC2Config {
   inServiceCount?: number;
 }
 
-export const ASG_DEFAULTS: Required<ASGConfig> = { instanceType: EC2_DEFAULTS.instanceType, inServiceCount: 1 };
+export const ASG_DEFAULTS: Required<ASGConfig> = { ...EC2_DEFAULTS, inServiceCount: 1 };
 
 export const model: ServiceModel<ASGConfig> = {
   defaults: ASG_DEFAULTS,

@@ -1,10 +1,28 @@
-import { Unit, type Bytes, type CreditState, type Mbps, type ModelTier, type Seconds, type ThroughputContext, type ThroughputResult } from "../types/math";
+import {
+  Unit,
+  type Bytes,
+  type CreditState,
+  DropKind,
+  type DropCause,
+  type DropContext,
+  type DropResult,
+  type LatencyResult,
+  type Mbps,
+  type Milliseconds,
+  type ModelTier,
+  type Ratio,
+  type Seconds,
+  type ThroughputContext,
+  type ThroughputResult,
+} from "../types/math";
 
-// ---- unit constructors and conversions (throughput is always Mbps) ----
+// ---- unit constructors and conversions (throughput is always Mbps, latency always ms) ----
 
 export const mbps = (value: number): Mbps => ({ type: Unit.Mbps, value });
 export const bytes = (value: number): Bytes => ({ type: Unit.Bytes, value });
 export const seconds = (value: number): Seconds => ({ type: Unit.Seconds, value });
+export const ms = (value: number): Milliseconds => ({ type: Unit.Milliseconds, value });
+export const ratio = (value: number): Ratio => ({ type: Unit.Ratio, value: Number.isNaN(value) ? 0 : clamp(value, 0, 1) });
 
 export const KiB = 1024;
 export const MiB = 1024 * 1024;
@@ -41,12 +59,22 @@ export function offeredMbps(ctx: ThroughputContext): Mbps {
   return mbps(ctx.inputsMbps.reduce((acc, m) => acc + m.value, 0));
 }
 
-// ---- result pipeline: pure steps over ThroughputResult ----
+// ---- result pipeline: pure steps over a result (throughput or latency) ----
 
-export type Step = (r: ThroughputResult) => ThroughputResult;
+export type Step<R = ThroughputResult> = (r: R) => R;
 
-export function pipe(initial: ThroughputResult, ...steps: Step[]): ThroughputResult {
+export function pipe<R>(initial: R, ...steps: Step<R>[]): R {
   return steps.reduce((r, step) => step(r), initial);
+}
+
+type Annotated = { notes: readonly string[]; model: ModelTier };
+
+export function note<R extends Annotated>(text: string | false | undefined): Step<R> {
+  return (r) => (text ? { ...r, notes: [...r.notes, text] } : r);
+}
+
+export function tier<R extends Annotated>(model: ModelTier): Step<R> {
+  return (r) => ({ ...r, model });
 }
 
 // Start a result from the context's offered load (or an explicit override for sources).
@@ -102,14 +130,6 @@ export function scaleOutputs(factor: number): Step {
   return (r) => ({ ...r, outputsMbps: r.outputsMbps.map((m) => mbps(m.value * factor)) });
 }
 
-export function note(text: string | false | undefined): Step {
-  return (r) => (text ? { ...r, notes: [...r.notes, text] } : r);
-}
-
-export function tier(model: ModelTier): Step {
-  return (r) => ({ ...r, model });
-}
-
 // ---- burstable bandwidth (EC2 / Fargate network I/O credits) ----
 // Bucket sized so a full bucket sustains `burst` for `burstSeconds`; credits refill whenever
 // demand is below baseline. Source: aws-simulation-research.md §1.1 / §7.
@@ -133,7 +153,175 @@ export function creditBucket(input: CreditBucketInput, state: CreditState): Mbps
   const available = state.creditsMbit > 0 ? burstMbps : baselineMbps;
   const used = Math.min(demandMbps.value, available.value);
   state.creditsMbit = clamp(state.creditsMbit + (baselineMbps.value - used) * dt.value, 0, bucketMax);
+  state.availableMbps = available;
   return available;
+}
+
+// ---- latency: queueing (reduced-formulas-latency.md §2.1) ----
+
+// serialization delay of one message
+export function xferMs(size: Bytes, bw: Mbps): Milliseconds {
+  return ms(Number.isFinite(bw.value) && bw.value > 0 ? (size.value * 8) / bw.value / 1e3 : 0);
+}
+
+// P(arrival waits) in M/M/c with offered load a = λ/μ; running product so large c doesn't overflow
+export function erlangC(c: number, a: number): number {
+  if (c <= 0 || a <= 0) return 0;
+  const rho = a / c;
+  if (rho >= 1) return 1;
+  let term = 1;
+  let sum = 1;
+  for (let k = 1; k < c; k++) {
+    term *= a / k;
+    sum += term;
+  }
+  term *= a / c;
+  const last = term / (1 - rho);
+  return last / (sum + last);
+}
+
+export interface QueueWait {
+  rho: number;
+  pWait: number;
+  meanMs: Milliseconds;
+  p50Ms: Milliseconds;
+  // Infinity when ρ ≥ 1
+  p99Ms: Milliseconds;
+}
+
+// M/M/c wait; λ, μ (per server) in 1/s. Quantiles from P(Wq > t) = C · e^{−(cμ−λ)t}.
+export function mmc(lambda: number, mu: number, c: number): QueueWait {
+  const servers = Math.max(1, c);
+  if (lambda <= 0 || !(mu > 0)) return { rho: 0, pWait: 0, meanMs: ms(0), p50Ms: ms(0), p99Ms: ms(0) };
+  const rho = lambda / (servers * mu);
+  if (rho >= 1) return { rho, pWait: 1, meanMs: ms(Infinity), p50Ms: ms(Infinity), p99Ms: ms(Infinity) };
+  const pWait = erlangC(servers, lambda / mu);
+  const drain = servers * mu - lambda;
+  const quantile = (q: number) => (pWait > q ? (Math.log(pWait / q) / drain) * 1000 : 0);
+  return { rho, pWait, meanMs: ms((pWait / drain) * 1000), p50Ms: ms(quantile(0.5)), p99Ms: ms(quantile(0.01)) };
+}
+
+export interface TailBranch {
+  share: number;
+  p99Ms: Milliseconds;
+}
+
+// p99 of a mixture: slowest branch carrying ≥ 1 % (else the largest branch)
+export function tailMix(branches: readonly TailBranch[]): Milliseconds {
+  const live = branches.filter((b) => b.share >= 0.01);
+  if (live.length > 0) return ms(Math.max(...live.map((b) => b.p99Ms.value)));
+  const largest = branches.reduce<TailBranch | undefined>((best, b) => (best === undefined || b.share > best.share ? b : best), undefined);
+  return largest?.p99Ms ?? ms(0);
+}
+
+// ---- latency pipeline steps ----
+
+export type LatencyStep = Step<LatencyResult>;
+
+export function start(serviceMs: Milliseconds, model: ModelTier): LatencyResult {
+  return {
+    serviceMs,
+    waitMs: ms(0),
+    p50Ms: serviceMs,
+    p99Ms: serviceMs,
+    utilization: 0,
+    servers: 0,
+    model,
+    notes: [],
+  };
+}
+
+export function wait(q: QueueWait, servers: number): LatencyStep {
+  return (r) => ({
+    ...r,
+    waitMs: q.p99Ms,
+    p50Ms: ms(r.serviceMs.value + q.p50Ms.value),
+    p99Ms: ms(r.serviceMs.value + q.p99Ms.value),
+    utilization: q.rho,
+    servers,
+  });
+}
+
+export function mix(branches: readonly (TailBranch & { p50Ms: Milliseconds })[]): LatencyStep {
+  return (r) => {
+    const total = branches.reduce((acc, b) => acc + b.share, 0);
+    const p50 = total > 0 ? branches.reduce((acc, b) => acc + (b.share / total) * b.p50Ms.value, 0) : r.p50Ms.value;
+    return { ...r, p50Ms: ms(p50), p99Ms: tailMix(branches) };
+  };
+}
+
+// only p99 is known downstream, so p50 stays the node's own
+export function downstream(p99Ms: Milliseconds | undefined): LatencyStep {
+  return (r) => (p99Ms === undefined ? r : { ...r, p99Ms: ms(r.p99Ms.value + p99Ms.value) });
+}
+
+// overloaded → p99 is the documented timeout, not ∞
+export function capTimeout(timeoutMs: Milliseconds): LatencyStep {
+  return (r) => ({
+    ...r,
+    p99Ms: ms(Math.min(r.p99Ms.value, timeoutMs.value)),
+    p50Ms: ms(Math.min(r.p50Ms.value, timeoutMs.value)),
+    notes: r.p99Ms.value > timeoutMs.value ? [...r.notes, `p99 capped at ${timeoutMs.value} ms timeout`] : r.notes,
+  });
+}
+
+// ---- drop / loss (reduced-formulas-drop.md §2.1) ----
+
+// independent stages
+export function combine(rates: readonly Ratio[]): Ratio {
+  return ratio(1 - rates.reduce((acc, r) => acc * (1 - r.value), 1));
+}
+
+// survives R independent retries
+export function retried(d: Ratio, retries: number): Ratio {
+  return ratio(Math.pow(d.value, Math.max(0, retries) + 1));
+}
+
+// P(latency > timeout) from the exponential tail anchored at p99: 0.01^(T / p99)
+export function tailExceed(p99: Milliseconds | undefined, timeout: Milliseconds): Ratio {
+  if (p99 === undefined || !(p99.value > 0)) return ratio(0);
+  if (!Number.isFinite(p99.value)) return ratio(1);
+  return ratio(Math.pow(0.01, timeout.value / p99.value));
+}
+
+export function meanRatio(values: readonly Ratio[] | undefined): Ratio {
+  if (!values || values.length === 0) return ratio(0);
+  return ratio(values.reduce((acc, r) => acc + r.value, 0) / values.length);
+}
+
+// ---- drop pipeline steps ----
+
+export type DropStep = Step<DropResult>;
+
+export function rawDropFrom(offered: Mbps, served: Mbps): Ratio {
+  return ratio(offered.value > 0 ? 1 - Math.min(offered.value, served.value) / offered.value : 0);
+}
+
+export function startDrop(ctx: DropContext, capacityMbps: Mbps, model: ModelTier): DropResult {
+  const offered = offeredMbps(ctx);
+  return startDropServed(offered, mbps(Math.min(offered.value, capacityMbps.value)), model);
+}
+
+// for served ≠ min(offered, capacity) (independent pools)
+export function startDropServed(offered: Mbps, served: Mbps, model: ModelTier): DropResult {
+  return {
+    offeredMbps: offered,
+    droppedMbps: mbps(0),
+    rawDrop: rawDropFrom(offered, served),
+    dropRate: ratio(0),
+    causes: [],
+    model,
+    notes: [],
+  };
+}
+
+export function cause(kind: DropKind, rate: Ratio): DropStep {
+  return (r) => {
+    if (rate.value <= 0) return r;
+    const causes: DropCause[] = [...r.causes, { kind, rate }];
+    const dropRate = combine(causes.map((c) => c.rate));
+    return { ...r, causes, dropRate, droppedMbps: mbps(r.offeredMbps.value * dropRate.value) };
+  };
 }
 
 // ---- tiny CSV reader for the node data files (imported with `?raw`) ----

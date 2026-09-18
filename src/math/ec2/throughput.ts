@@ -8,9 +8,11 @@ import instanceCsv from "./instancetype.csv?raw";
 
 export interface EC2Config {
   instanceType?: string;
+  // key into plantype.csv
+  plan?: string;
 }
 
-export const EC2_DEFAULTS: Required<EC2Config> = { instanceType: "t3.large" };
+export const EC2_DEFAULTS: Required<EC2Config> = { instanceType: "t3.large", plan: "On-Demand" };
 
 // Fixed by AWS (aws-simulation-research.md §1.1)
 export const EC2_FIXED = {

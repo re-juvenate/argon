@@ -34,6 +34,8 @@ export const LAMBDA_ASSUMED = {
 
 export interface LambdaState {
   warmEnvs: number;
+  // added by the ramp on the last tick (cold starts)
+  createdEnvs: number;
 }
 
 export function concurrencyCeiling(config?: LambdaConfig): number {
@@ -46,7 +48,7 @@ export function durationMs(config?: LambdaConfig): number {
   return LAMBDA_ASSUMED.durationMsAt1Vcpu * Math.max(1, LAMBDA_FIXED.mbPerVcpu / c.memoryMb);
 }
 
-function capacityForEnvs(envs: number, config?: LambdaConfig): Mbps {
+export function capacityForEnvs(envs: number, config?: LambdaConfig): Mbps {
   const rpsFromDuration = (envs * 1000) / durationMs(config);
   const rpsCap = LAMBDA_ASSUMED.sync ? Math.min(rpsFromDuration, LAMBDA_FIXED.rpsPerConcurrency * envs) : rpsFromDuration;
   return mbps(Math.min(toMbps(rpsCap, LAMBDA_ASSUMED.avgBytes).value, envs * LAMBDA_FIXED.envBandwidthMbps.value));
@@ -61,7 +63,7 @@ export const model: ServiceModel<LambdaConfig, LambdaState> = {
   },
 
   newState() {
-    return { warmEnvs: 0 };
+    return { warmEnvs: 0, createdEnvs: 0 };
   },
 
   evaluate(config, state) {
@@ -72,7 +74,9 @@ export const model: ServiceModel<LambdaConfig, LambdaState> = {
       let scaling = false;
       if (state && ctx.dt !== undefined) {
         const demandEnvs = (toRps(offeredMbps(ctx), LAMBDA_ASSUMED.avgBytes) * duration) / 1000;
-        state.warmEnvs = Math.min(ceiling, state.warmEnvs + Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * ctx.dt.value));
+        const created = Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * ctx.dt.value, ceiling - state.warmEnvs);
+        state.warmEnvs += created;
+        state.createdEnvs = created;
         envs = state.warmEnvs;
         scaling = demandEnvs > envs;
       }

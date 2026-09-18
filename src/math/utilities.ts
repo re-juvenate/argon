@@ -12,6 +12,7 @@ import {
   type ModelTier,
   type Ratio,
   type Seconds,
+  type Stamped,
   type ThroughputContext,
   type ThroughputResult,
 } from "../types/math";
@@ -131,29 +132,40 @@ export function scaleOutputs(factor: number): Step {
 }
 
 // ---- burstable bandwidth (EC2 / Fargate network I/O credits) ----
-// Bucket sized so a full bucket sustains `burst` for `burstSeconds`; credits refill whenever
-// demand is below baseline. Source: aws-simulation-research.md §1.1 / §7.
+
+// ---- tick stamps: stateful models advance once per tick; readers trust only same-tick state ----
+
+// true when `state` was already advanced for `ctx.tick` (untracked ticks never match)
+export const advanced = (state: Stamped, ctx: ThroughputContext): boolean => ctx.tick !== undefined && state.tick === ctx.tick;
+
+// `state` if it is usable for this tick (advanced this tick, or ticks untracked), else undefined
+export const current = <S extends Stamped>(state: S | undefined, ctx: ThroughputContext): S | undefined =>
+  state !== undefined && (ctx.tick === undefined || state.tick === ctx.tick) ? state : undefined;
+
+// ---- burstable bandwidth (EC2 / Fargate network I/O credits) ----
 
 export interface CreditBucketInput {
   baselineMbps: Mbps;
   burstMbps: Mbps;
   demandMbps: Mbps;
   burstSeconds: Seconds;
-  dt: Seconds;
+  ctx: ThroughputContext;
 }
 
 export function newCreditState(baselineMbps: Mbps, burstMbps: Mbps, burstSeconds: Seconds): CreditState {
   return { creditsMbit: Math.max(0, burstMbps.value - baselineMbps.value) * burstSeconds.value };
 }
 
-// Returns the bandwidth available this tick and mutates `state`.
+// Bandwidth granted this tick; mutates `state` once per tick (repeat calls return the grant).
 export function creditBucket(input: CreditBucketInput, state: CreditState): Mbps {
-  const { baselineMbps, burstMbps, demandMbps, burstSeconds, dt } = input;
+  const { baselineMbps, burstMbps, demandMbps, burstSeconds, ctx } = input;
+  if (advanced(state, ctx) && state.availableMbps) return state.availableMbps;
   const bucketMax = Math.max(0, burstMbps.value - baselineMbps.value) * burstSeconds.value;
   const available = state.creditsMbit > 0 ? burstMbps : baselineMbps;
   const used = Math.min(demandMbps.value, available.value);
-  state.creditsMbit = clamp(state.creditsMbit + (baselineMbps.value - used) * dt.value, 0, bucketMax);
+  state.creditsMbit = clamp(state.creditsMbit + (baselineMbps.value - used) * (ctx.dt?.value ?? 0), 0, bucketMax);
   state.availableMbps = available;
+  state.tick = ctx.tick;
   return available;
 }
 

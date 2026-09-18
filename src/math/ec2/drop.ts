@@ -1,5 +1,5 @@
 import { DropKind, ModelTier, type CreditState, type DropModel } from "../../types/math";
-import { cause, note, num, parseCsv, pipe, ratio, resolve, startDrop } from "../utilities";
+import { cause, current, note, num, parseCsv, pipe, ratio, resolve, startDrop } from "../utilities";
 import { availableMbps } from "./latency";
 import planCsv from "./plantype.csv?raw";
 import { EC2_DEFAULTS, resolveSpec, type EC2Config } from "./throughput";
@@ -36,7 +36,8 @@ export const model: DropModel<EC2Config, CreditState> = {
     const spec = resolveSpec(c.instanceType);
     const spot = spotFloor(c.plan);
     return (ctx) => {
-      const bw = availableMbps(spec, state);
+      const s = current(state, ctx);
+      const bw = availableMbps(spec, s);
       const r = startDrop(ctx, bw, ModelTier.Measured);
       return pipe(
         r,
@@ -44,6 +45,7 @@ export const model: DropModel<EC2Config, CreditState> = {
         cause(DropKind.Reclaimed, ratio(spot)),
         note(r.rawDrop.value > 0 && "NIC allowance exceeded: queued then dropped (TCP retransmits, UDP loses)"),
         note(bw.value < spec.burstMbps.value && "network credits exhausted: capacity at baseline"),
+        note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
         note(spot > 0 && `Spot: reclaim floor ${spot.toExponential(1)} assumed (<5 %/month, 300 s replace)`),
         note(!PLAN_SPECS[c.plan] && `unknown plan ${c.plan}, treated as On-Demand`),
         note("PPS and conntrack allowances not published: not modelled"),

@@ -86,7 +86,7 @@ export const model: ServiceModel<EC2Config, CreditState> = {
       const available =
         state && ctx.dt !== undefined
           ? creditBucket(
-              { baselineMbps: base.mbps, burstMbps: spec.burstMbps, demandMbps: offeredMbps(ctx), burstSeconds: EC2_FIXED.burstSeconds, dt: ctx.dt },
+              { baselineMbps: base.mbps, burstMbps: spec.burstMbps, demandMbps: offeredMbps(ctx), burstSeconds: EC2_FIXED.burstSeconds, ctx },
               state,
             )
           : spec.burstMbps;

@@ -1,5 +1,5 @@
 import { ModelTier, type CreditState, type LatencyModel, type Mbps, type Milliseconds } from "../../types/math";
-import { bytes, KiB, mmc, ms, note, num, offeredMbps, parseCsv, pipe, resolve, start, toRps, wait, xferMs, type QueueWait } from "../utilities";
+import { bytes, current, KiB, mmc, ms, note, num, offeredMbps, parseCsv, pipe, resolve, start, toRps, wait, xferMs, type QueueWait } from "../utilities";
 import instanceCsv from "./instancetype.csv?raw";
 import { baselineMbps, EC2_DEFAULTS, resolveSpec, type EC2Config, type InstanceSpec } from "./throughput";
 
@@ -39,7 +39,8 @@ export const model: LatencyModel<EC2Config, CreditState> = {
     const spec = resolveSpec(instanceType);
     const nic = nicLatencyMs(spec.instanceType);
     return (ctx) => {
-      const bw = availableMbps(spec, state);
+      const s = current(state, ctx);
+      const bw = availableMbps(spec, s);
       const { xfer, queue } = linkQueue(offeredMbps(ctx), bw);
       return pipe(
         start(ms(EC2_LATENCY_ASSUMED.processingMs.value + nic.ms.value + xfer.value), ModelTier.Estimated),
@@ -47,6 +48,7 @@ export const model: LatencyModel<EC2Config, CreditState> = {
         note(`processingMs ${EC2_LATENCY_ASSUMED.processingMs.value} assumed`),
         note(!nic.measured && "NIC latency assumed (no CSV figure)"),
         note(bw.value < spec.burstMbps.value && "network credits exhausted: link at baseline"),
+        note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
         note(queue.rho >= 1 && "link overloaded: p99 unbounded"),
       );
     };

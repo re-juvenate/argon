@@ -1,5 +1,5 @@
-import { ModelTier, type Mbps, type ServiceModel } from "../../types/math";
-import { bytes, cap, KiB, mbps, note, offered, offeredMbps, pipe, resolve, splitEven, toMbps, toRps } from "../utilities";
+import { ModelTier, type Mbps, type ServiceModel, type Stamped } from "../../types/math";
+import { advanced, bytes, cap, KiB, mbps, note, offered, offeredMbps, pipe, resolve, splitEven, toMbps, toRps } from "../utilities";
 
 // Lambda. At setup you choose memory and (optionally) reserved concurrency; the account's
 // regional concurrency is an AWS quota. Function duration and payload size are properties
@@ -32,7 +32,7 @@ export const LAMBDA_ASSUMED = {
   sync: true,
 } as const;
 
-export interface LambdaState {
+export interface LambdaState extends Stamped {
   warmEnvs: number;
   // added by the ramp on the last tick (cold starts)
   createdEnvs: number;
@@ -74,9 +74,12 @@ export const model: ServiceModel<LambdaConfig, LambdaState> = {
       let scaling = false;
       if (state && ctx.dt !== undefined) {
         const demandEnvs = (toRps(offeredMbps(ctx), LAMBDA_ASSUMED.avgBytes) * duration) / 1000;
-        const created = Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * ctx.dt.value, ceiling - state.warmEnvs);
-        state.warmEnvs += created;
-        state.createdEnvs = created;
+        if (!advanced(state, ctx)) {
+          const created = Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * ctx.dt.value, ceiling - state.warmEnvs);
+          state.warmEnvs += created;
+          state.createdEnvs = created;
+          state.tick = ctx.tick;
+        }
         envs = state.warmEnvs;
         scaling = demandEnvs > envs;
       }

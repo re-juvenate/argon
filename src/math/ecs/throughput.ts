@@ -68,7 +68,7 @@ export const model: ServiceModel<FargateConfig, CreditState> = {
                 burstMbps: burst,
                 demandMbps: mbps(offeredMbps(ctx).value / Math.max(1, c.tasks)),
                 burstSeconds: FARGATE_FIXED.burstSeconds,
-                dt: ctx.dt,
+                ctx,
               },
               state,
             )

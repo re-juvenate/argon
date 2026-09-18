@@ -1,5 +1,5 @@
 import { ModelTier, type CreditState, type LatencyModel } from "../../types/math";
-import { mbps, ms, note, offeredMbps, pipe, resolve, start, wait } from "../utilities";
+import { current, mbps, ms, note, offeredMbps, pipe, resolve, start, wait } from "../utilities";
 import { EC2_LATENCY_ASSUMED, linkQueue } from "../ec2/latency";
 import { FARGATE_DEFAULTS, taskAvailableMbps, taskBaselineMbps, taskBurstMbps, type FargateConfig } from "./throughput";
 
@@ -14,7 +14,8 @@ export const model: LatencyModel<FargateConfig, CreditState> = {
     const base = taskBaselineMbps(c.vcpu, c.memGiB);
     const burst = taskBurstMbps(c.vcpu, c.memGiB);
     return (ctx) => {
-      const bw = taskAvailableMbps(base.mbps, burst, state);
+      const s = current(state, ctx);
+      const bw = taskAvailableMbps(base.mbps, burst, s);
       const perTask = mbps(offeredMbps(ctx).value / Math.max(1, c.tasks));
       const { xfer, queue } = linkQueue(perTask, bw);
       return pipe(
@@ -23,6 +24,7 @@ export const model: LatencyModel<FargateConfig, CreditState> = {
         note(`processingMs ${EC2_LATENCY_ASSUMED.processingMs.value} and NIC latency assumed; per-task queue`),
         note("Fargate vCPU slower than EC2 for the same count (unsourced factor, not applied)"),
         note(bw.value < burst.value && "network credits exhausted: link at baseline"),
+        note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
         note(queue.rho >= 1 && "task links overloaded: p99 unbounded"),
       );
     };

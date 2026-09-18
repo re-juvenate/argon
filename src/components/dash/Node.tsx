@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
 import { useIsland } from "./Island";
+import { Socket } from "./Edge";
 
 interface NodeProps {
   name: string;
@@ -19,7 +20,7 @@ const Node = ({ name, color, style, visibleChildren, children }: NodeProps) => {
     <div
       ref={islandRef}
       style={style}
-      className="w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2"
+      className="w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2 relative"
     >
       <div
         ref={headerRef}
@@ -37,6 +38,7 @@ const Node = ({ name, color, style, visibleChildren, children }: NodeProps) => {
         {visibleChildren}
         {children && (isOpen ? <div className="flex flex-col gap-2">{children}</div> : null)}
       </div>
+      <Socket />
     </div>
   );
 };

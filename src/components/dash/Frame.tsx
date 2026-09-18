@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
 import { useIsland } from "./Island";
+import { Socket } from "./Edge";
 import cn from "cnfast";
 
 interface FrameProps {
@@ -19,7 +20,7 @@ const Frame = ({ name, style, children }: FrameProps) => {
       ref={islandRef}
       style={style}
       data-frame
-      className="w-fit border-2 border-dashed border-border flex flex-col"
+      className="w-fit border-2 border-dashed border-border flex flex-col relative"
     >
       <div
         ref={headerRef}
@@ -36,6 +37,7 @@ const Frame = ({ name, style, children }: FrameProps) => {
       >
         {children}
       </div>
+      <Socket />
     </div>
   );
 };

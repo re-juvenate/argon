@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import EdgeLayer from "./Edge";
 
 import EC2 from "./nodes/ec2/EC2";
 import SQS from "./nodes/sqs/SQS";
@@ -14,8 +15,11 @@ import S3 from "./nodes/s3/s3";
 const at = (left: number, top: number): CSSProperties => ({ left, top });
 
 export default function NodeContainer() {
-  return (
-    <div data-island-board className="relative w-full h-screen overflow-hidden bg-background">
+  return (    <div
+      data-island-board
+      className="relative w-full h-screen overflow-hidden bg-background"
+    >
+      <EdgeLayer>
       <EC2 style={at(40, 40)} />
       <SQS style={at(340, 40)} />
       <ELB style={at(640, 40)} />
@@ -29,6 +33,7 @@ export default function NodeContainer() {
       <Lambda style={at(340, 620)} />
       <Route53 style={at(640, 620)} />
       <S3 style={at(940, 40)} />
+      </EdgeLayer>
     </div>
   );
 }

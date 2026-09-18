@@ -1,6 +1,6 @@
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import gsap from "gsap";
 
 interface QueueProps {
@@ -52,9 +52,10 @@ const Queue = ({ n, speed, state }: QueueProps) => {
   );
 };
 
-const SQS = () => {
+const SQS = ({ style }: { style?: CSSProperties }) => {
   return (
     <Node
+      style={style}
       color="#c72161"
       name="SQS"
       visibleChildren={<Queue n={10} speed={2} state={true} />}

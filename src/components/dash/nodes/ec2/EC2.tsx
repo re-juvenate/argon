@@ -1,16 +1,12 @@
-import { type FC } from "react";
+import type { CSSProperties } from "react";
 import Node from "../../Node";
 import EnumDropdown from "../../nodeoptions/enumdropdown";
 import Slider from "../../nodeoptions/slider";
 import Boolean from "../../nodeoptions/boolean";
 
-interface EC2Props {
-  innerRef?: (el: HTMLElement | null) => void;
-}
-
-const EC2: FC<EC2Props> = ({ innerRef }) => {
+const EC2 = ({ style }: { style?: CSSProperties }) => {
   return (
-    <Node name="EC2" color="#e66d00" ref={innerRef}>
+    <Node name="EC2" color="#e66d00" style={style}>
       <EnumDropdown
         label="Subsurface Method"
         optionNames={["Christensen-Burley", "Random Walk", "Random Walk (Skin)"]}

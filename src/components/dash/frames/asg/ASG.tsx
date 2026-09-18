@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Frame from "../../Frame";
 
 gsap.registerPlugin(useGSAP);
 
-const ASG = ({ n, children }: { n: number; children: ReactNode }) => {
+const ASG = ({ n, style, children }: { n: number; style?: CSSProperties; children: ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [instances, setInstances] = useState<string[]>([]);
   const prevN = useRef(n);
@@ -91,7 +91,7 @@ const ASG = ({ n, children }: { n: number; children: ReactNode }) => {
 
   return (
     <div ref={containerRef}>
-      <Frame name="ASG">
+      <Frame name="ASG" style={style}>
         {instances.map((id) => (
           <div key={id} data-id={id} className="itemmmmy">
             {children}

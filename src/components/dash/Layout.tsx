@@ -1,9 +1,6 @@
-import { useRef } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { Draggable } from "gsap/Draggable";
-import { InertiaPlugin } from "gsap/InertiaPlugin";
-import Node from "./Node";
+import type { CSSProperties } from "react";
+import EdgeLayer from "./Edge";
+
 import EC2 from "./nodes/ec2/EC2";
 import SQS from "./nodes/sqs/SQS";
 import ELB from "./nodes/elb/ELB";
@@ -15,48 +12,28 @@ import Lambda from "./nodes/lambda/lambda";
 import Route53 from "./nodes/route53/route53";
 import S3 from "./nodes/s3/s3";
 
-gsap.registerPlugin(Draggable, InertiaPlugin);
+const at = (left: number, top: number): CSSProperties => ({ left, top });
 
 export default function NodeContainer() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useGSAP(
-    () => {
-      const nodes = gsap.utils.toArray<HTMLElement>(".draggable-node");
-
-      const draggableInstances = nodes.map((node) => {
-        const handle = node.querySelector(".draggable-node-handle") || undefined;
-
-        return Draggable.create(node, {
-          type: "x,y",
-          bounds: containerRef.current,
-          inertia: true,
-          trigger: handle,
-        })[0];
-      });
-
-      return () => {
-        draggableInstances.forEach((instance) => instance?.kill());
-      };
-    },
-    { scope: containerRef },
-  );
-
-  return (
-    <div ref={containerRef} className="relative w-full h-screen overflow-hidden bg-background">
-      <EC2 />
-      <SQS />
-      <ELB />
-      <ASG n={8}>
+  return (    <div
+      data-island-board
+      className="relative w-full h-screen overflow-hidden bg-background"
+    >
+      <EdgeLayer>
+      <EC2 style={at(40, 40)} />
+      <SQS style={at(340, 40)} />
+      <ELB style={at(640, 40)} />
+      <ASG n={8} style={at(940, 360)}>
         <EC2 />
       </ASG>
-      <Aurora />
-      <Cloudfront />
-      <ELB />
-      <Fargate />
-      <Lambda />
-      <Route53 />
-      <S3 />
+      <Aurora style={at(40, 360)} />
+      <Cloudfront style={at(340, 360)} />
+      <ELB style={at(640, 360)} />
+      <Fargate style={at(40, 620)} />
+      <Lambda style={at(340, 620)} />
+      <Route53 style={at(640, 620)} />
+      <S3 style={at(940, 40)} />
+      </EdgeLayer>
     </div>
   );
 }

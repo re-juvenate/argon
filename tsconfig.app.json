@@ -8,6 +8,10 @@
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
+    "paths": {
+      "@tremor/react": ["./node_modules/@tremor/react/dist/index.d.ts"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

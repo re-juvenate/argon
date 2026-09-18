@@ -1,57 +1,46 @@
-import { useState, Activity, forwardRef } from "react";
-import type { ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
-import { useFrame } from "./Frame";
-import cn from "cnfast";
+import { useIsland } from "./Island";
+import { Socket } from "./Edge";
 
 interface NodeProps {
   name: string;
   color: string;
+  style?: CSSProperties;
   visibleChildren?: ReactNode;
   children?: ReactNode;
-  parent?: ReactNode;
 }
 
-const Node = forwardRef<HTMLDivElement, NodeProps>(
-  ({ name, color, visibleChildren, children, parent }, ref) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const inFrame = useFrame();
+const Node = ({ name, color, style, visibleChildren, children }: NodeProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const islandRef = useIsland<HTMLDivElement>({ flow: true, handle: headerRef });
 
-    return (
+  return (
+    <div
+      ref={islandRef}
+      style={style}
+      className="w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2 relative"
+    >
       <div
-        ref={ref}
-        className={cn(
-          "w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2",
-          !inFrame && "draggable-node absolute",
-        )}
+        ref={headerRef}
+        style={{ backgroundColor: color }}
+        className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <div
-          style={{ backgroundColor: color }}
-          className={cn(
-            "text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2",
-            !inFrame && "draggable-node-handle",
-          )}
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <span>{name}</span>
-          {children && (
-            <span className="text-sm">{isOpen ? <CaretUpIcon /> : <CaretDownIcon />}</span>
-          )}
-        </div>
-
-        <div className="flex flex-col px-2 flex-1 gap-2">
-          {visibleChildren}
-          {children && (
-            <Activity mode={isOpen ? "visible" : "hidden"}>
-              <div className="flex flex-col gap-2">{children}</div>
-            </Activity>
-          )}
-        </div>
+        <span>{name}</span>
+        {children && (
+          <span className="text-sm">{isOpen ? <CaretUpIcon /> : <CaretDownIcon />}</span>
+        )}
       </div>
-    );
-  },
-);
 
-Node.displayName = "Node";
+      <div className="flex flex-col px-2 flex-1 gap-2">
+        {visibleChildren}
+        {children && (isOpen ? <div className="flex flex-col gap-2">{children}</div> : null)}
+      </div>
+      <Socket />
+    </div>
+  );
+};
 
 export default Node;

@@ -15,10 +15,7 @@ const at = (left: number, top: number): CSSProperties => ({ left, top });
 
 export default function NodeContainer() {
   return (
-    <div
-      data-island-board
-      className="relative w-full h-screen overflow-hidden bg-background"
-    >
+    <div data-island-board className="relative w-full h-screen overflow-hidden bg-background">
       <EC2 style={at(40, 40)} />
       <SQS style={at(340, 40)} />
       <ELB style={at(640, 40)} />

@@ -1,21 +1,23 @@
 import { DropKind, ModelTier, type DropModel } from "../../types/math";
-import { cause, note, offeredMbps, pipe, ratio, resolve, startDropServed, toMbps, toRps } from "../utilities";
-import { AURORA_ASSUMED, AURORA_DEFAULTS, capacityRps, resolveClass, type AuroraConfig } from "./throughput";
+import { cause, current, note, offeredMbps, pipe, ratio, resolve, sizeOf, startDropServed, toMbps, toRps } from "../utilities";
+import { AURORA_ASSUMED, AURORA_DEFAULTS, capacityRps, resolveClass, type AuroraConfig, type AuroraState } from "./throughput";
 
 // Refused connections past max_connections (hard) + pool overflow as client timeouts (the
 // engine does not throttle). Failover windows are events, not steady state.
 // Spec: .references/reduced-formulas-drop.md §3.10
 
-export const model: DropModel<AuroraConfig> = {
+export const model: DropModel<AuroraConfig, AuroraState> = {
   defaults: AURORA_DEFAULTS,
 
-  evaluate(config) {
+  evaluate(config, state) {
     const c = resolve(AURORA_DEFAULTS, config);
-    const { cls, note: classNote } = resolveClass(c);
-    const { readFraction, rowBytes, queryMs } = AURORA_ASSUMED;
-    const cap = capacityRps(c);
-    const maxConn = cls.maxConnections * (1 + c.readers);
+    const { readFraction, queryMs } = AURORA_ASSUMED;
     return (ctx) => {
+      const acu = current(state, ctx)?.level;
+      const { cls, note: classNote } = resolveClass(c, acu);
+      const cap = capacityRps(c, acu);
+      const maxConn = cls.maxConnections * (1 + c.readers);
+      const rowBytes = sizeOf(ctx, AURORA_ASSUMED.rowBytes);
       // same independent read/write split as the throughput model
       const offered = offeredMbps(ctx);
       const rps = toRps(offered, rowBytes);

@@ -1,5 +1,5 @@
 import { DropKind, ModelTier, type DropModel } from "../../types/math";
-import { cause, meanRatio, note, offeredMbps, pipe, ratio, resolve, startDrop, tailExceed, toRps } from "../utilities";
+import { cause, meanRatio, note, offeredMbps, pipe, ratio, resolve, sizeOf, startDrop, tailExceed, toRps } from "../utilities";
 import { LB_LATENCY_FIXED } from "./latency";
 import { LB_ASSUMED, LB_DEFAULTS, LBKind, reservedCapacity, type LBConfig } from "./throughput";
 
@@ -15,7 +15,8 @@ export const model: DropModel<LBConfig> = {
   evaluate(config) {
     const c = resolve(LB_DEFAULTS, config);
     return (ctx) => {
-      const r = startDrop(ctx, reservedCapacity(offeredMbps(ctx), c), ModelTier.Estimated);
+      const size = sizeOf(ctx, LB_ASSUMED.avgBytes);
+      const r = startDrop(ctx, reservedCapacity(offeredMbps(ctx), c, size), ModelTier.Estimated);
       const targets = ctx.downstreamDrop ?? [];
       const live = targets.map((_, i) => i).filter((i) => targets[i].value < 1);
       const allDead = targets.length > 0 && live.length === 0;
@@ -23,7 +24,7 @@ export const model: DropModel<LBConfig> = {
       const timeouts = meanRatio(live.map((i) => tailExceed(ctx.downstreamMs?.[i], LB_LATENCY_FIXED.idleTimeoutMs)));
       let port = ratio(0);
       if (c.kind === LBKind.NLB && ctx.outputCount > 0) {
-        const activePerTarget = (toRps(offeredMbps(ctx), LB_ASSUMED.avgBytes) * LB_ASSUMED.connSeconds) / ctx.outputCount;
+        const activePerTarget = (toRps(offeredMbps(ctx), size) * LB_ASSUMED.connSeconds) / ctx.outputCount;
         port = ratio(Math.max(0, 1 - NLB_FIXED.connectionsPerTarget / activePerTarget));
       }
       return pipe(

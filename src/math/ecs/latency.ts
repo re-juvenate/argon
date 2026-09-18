@@ -1,12 +1,13 @@
-import { ModelTier, type CreditState, type LatencyModel } from "../../types/math";
-import { current, mbps, ms, note, offeredMbps, pipe, resolve, start, wait } from "../utilities";
-import { EC2_LATENCY_ASSUMED, linkQueue } from "../ec2/latency";
-import { FARGATE_DEFAULTS, taskAvailableMbps, taskBaselineMbps, taskBurstMbps, type FargateConfig } from "./throughput";
+import { ModelTier, type LatencyModel } from "../../types/math";
+import { current, mbps, ms, note, offeredMbps, pipe, resolve, sizeOf, start, wait } from "../utilities";
+import { instanceQueue } from "../ec2/latency";
+import { EC2_ASSUMED } from "../ec2/throughput";
+import { FARGATE_CPU_EFFICIENCY, FARGATE_DEFAULTS, taskAvailableMbps, taskBaselineMbps, taskBurstMbps, tasksInService, type FargateConfig, type FargateState } from "./throughput";
 
-// Each task is an independent M/M/1 link at λ / tasks.
+// Each task is an independent queue at λ / tasks: M/M/c on its vCPUs, M/M/1 on its link.
 // Spec: .references/reduced-formulas-latency.md §3.2
 
-export const model: LatencyModel<FargateConfig, CreditState> = {
+export const model: LatencyModel<FargateConfig, FargateState> = {
   defaults: FARGATE_DEFAULTS,
 
   evaluate(config, state) {
@@ -14,18 +15,17 @@ export const model: LatencyModel<FargateConfig, CreditState> = {
     const base = taskBaselineMbps(c.vcpu, c.memGiB);
     const burst = taskBurstMbps(c.vcpu, c.memGiB);
     return (ctx) => {
-      const s = current(state, ctx);
-      const bw = taskAvailableMbps(base.mbps, burst, s);
-      const perTask = mbps(offeredMbps(ctx).value / Math.max(1, c.tasks));
-      const { xfer, queue } = linkQueue(perTask, bw);
+      const credits = current(state?.credits, ctx);
+      const bw = taskAvailableMbps(base.mbps, burst, credits);
+      const tasks = Math.max(1, tasksInService(c, state, ctx));
+      const q = instanceQueue(mbps(offeredMbps(ctx).value / tasks), bw, c.vcpu, sizeOf(ctx, EC2_ASSUMED.avgBytes), FARGATE_CPU_EFFICIENCY);
       return pipe(
-        start(ms(EC2_LATENCY_ASSUMED.processingMs.value + EC2_LATENCY_ASSUMED.nicMs.value + xfer.value), ModelTier.Estimated),
-        wait(queue, 1),
-        note(`processingMs ${EC2_LATENCY_ASSUMED.processingMs.value} and NIC latency assumed; per-task queue`),
-        note("Fargate vCPU slower than EC2 for the same count (unsourced factor, not applied)"),
+        start(ms(EC2_ASSUMED.processingMs + EC2_ASSUMED.nicMs + q.xfer.value), ModelTier.Estimated),
+        wait(q.queue, q.servers),
+        note(`${tasks} task queue(s); processingMs and NIC latency assumed; ${q.cpuBound ? "CPU" : "link"} binds`),
         note(bw.value < burst.value && "network credits exhausted: link at baseline"),
-        note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
-        note(queue.rho >= 1 && "task links overloaded: p99 unbounded"),
+        note(state !== undefined && credits === undefined && "state not advanced this tick: steady state"),
+        note(q.queue.rho >= 1 && "tasks overloaded: p99 unbounded"),
       );
     };
   },

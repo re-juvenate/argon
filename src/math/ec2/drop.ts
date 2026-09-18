@@ -1,8 +1,8 @@
 import { DropKind, ModelTier, type CreditState, type DropModel } from "../../types/math";
-import { cause, current, note, num, parseCsv, pipe, ratio, resolve, startDrop } from "../utilities";
+import { cause, current, mbps, note, num, parseCsv, pipe, ratio, resolve, sizeOf, startDrop } from "../utilities";
 import { availableMbps } from "./latency";
-import planCsv from "./plantype.csv?raw";
-import { EC2_DEFAULTS, resolveSpec, type EC2Config } from "./throughput";
+import { readFileSync } from "node:fs"; const planCsv = readFileSync(new URL("./plantype.csv", import.meta.url), "utf8");
+import { cpuCapacityMbps, EC2_ASSUMED, EC2_DEFAULTS, resolveSpec, type EC2Config } from "./throughput";
 
 // NIC overflow (ENA "queue then drop") plus Spot reclaim. PPS / conntrack allowances unpublished.
 // Spec: .references/reduced-formulas-drop.md §3.1
@@ -38,12 +38,13 @@ export const model: DropModel<EC2Config, CreditState> = {
     return (ctx) => {
       const s = current(state, ctx);
       const bw = availableMbps(spec, s);
-      const r = startDrop(ctx, bw, ModelTier.Measured);
+      const cpu = cpuCapacityMbps(spec, sizeOf(ctx, EC2_ASSUMED.avgBytes));
+      const r = startDrop(ctx, mbps(Math.min(bw.value, cpu.value)), ModelTier.Measured);
       return pipe(
         r,
         cause(DropKind.Overflow, r.rawDrop),
         cause(DropKind.Reclaimed, ratio(spot)),
-        note(r.rawDrop.value > 0 && "NIC allowance exceeded: queued then dropped (TCP retransmits, UDP loses)"),
+        note(r.rawDrop.value > 0 && (cpu.value < bw.value ? "CPU saturated: requests time out / are refused (processingMs assumed)" : "NIC allowance exceeded: queued then dropped (TCP retransmits, UDP loses)")),
         note(bw.value < spec.burstMbps.value && "network credits exhausted: capacity at baseline"),
         note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
         note(spot > 0 && `Spot: reclaim floor ${spot.toExponential(1)} assumed (<5 %/month, 300 s replace)`),

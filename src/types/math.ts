@@ -47,10 +47,24 @@ export interface ThroughputContext {
   dt?: Seconds;
   // only trust state advanced for the same tick
   tick?: number;
+  // request size on the incoming edge; nodes fall back to their own assumption
+  avgBytes?: Bytes;
 }
 
 export interface Stamped {
   tick?: number;
+}
+
+// Capacity that scales with a rate and a delay (ASG, ECS, S3 partitions, Aurora Serverless)
+export interface RampState extends Stamped {
+  // current capacity in the model's own unit (instances, tasks, rps, ACU)
+  level: number;
+  // ordered capacity not yet in service
+  pending: { readyAtS: number; amount: number }[];
+  timeS: number;
+  aboveS: number;
+  belowS: number;
+  lastScaleS: number;
 }
 
 export interface ThroughputResult {
@@ -92,7 +106,10 @@ export interface LatencyResult {
   serviceMs: Milliseconds;
   waitMs: Milliseconds;
   p50Ms: Milliseconds;
+  // capped at the node's documented timeout
   p99Ms: Milliseconds;
+  // p99 before the cap: what the drop pass counts timeouts from
+  tailMs: Milliseconds;
   utilization: number;
   // c in M/M/c
   servers: number;

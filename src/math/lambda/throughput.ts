@@ -1,5 +1,5 @@
 import { ModelTier, type Mbps, type ServiceModel, type Stamped } from "../../types/math";
-import { advanced, bytes, cap, KiB, mbps, note, offered, offeredMbps, pipe, resolve, splitEven, toMbps, toRps } from "../utilities";
+import { advanced, bytes, cap, KiB, mbps, note, offered, offeredMbps, pipe, resolve, sizeOf, splitEven, toMbps, toRps } from "../utilities";
 
 // Lambda. At setup you choose memory and (optionally) reserved concurrency; the account's
 // regional concurrency is an AWS quota. Function duration and payload size are properties
@@ -30,6 +30,8 @@ export const LAMBDA_ASSUMED = {
   durationMsAt1Vcpu: 100,
   avgBytes: bytes(16 * KiB),
   sync: true,
+  // idle environments are reclaimed after ~5–15 min; first-order decay toward demand
+  idleReclaimS: 600,
 } as const;
 
 export interface LambdaState extends Stamped {
@@ -48,10 +50,10 @@ export function durationMs(config?: LambdaConfig): number {
   return LAMBDA_ASSUMED.durationMsAt1Vcpu * Math.max(1, LAMBDA_FIXED.mbPerVcpu / c.memoryMb);
 }
 
-export function capacityForEnvs(envs: number, config?: LambdaConfig): Mbps {
+export function capacityForEnvs(envs: number, config?: LambdaConfig, size = LAMBDA_ASSUMED.avgBytes): Mbps {
   const rpsFromDuration = (envs * 1000) / durationMs(config);
   const rpsCap = LAMBDA_ASSUMED.sync ? Math.min(rpsFromDuration, LAMBDA_FIXED.rpsPerConcurrency * envs) : rpsFromDuration;
-  return mbps(Math.min(toMbps(rpsCap, LAMBDA_ASSUMED.avgBytes).value, envs * LAMBDA_FIXED.envBandwidthMbps.value));
+  return mbps(Math.min(toMbps(rpsCap, size).value, envs * LAMBDA_FIXED.envBandwidthMbps.value));
 }
 
 export const model: ServiceModel<LambdaConfig, LambdaState> = {
@@ -70,22 +72,27 @@ export const model: ServiceModel<LambdaConfig, LambdaState> = {
     const ceiling = concurrencyCeiling(config);
     const duration = durationMs(config);
     return (ctx) => {
+      const size = sizeOf(ctx, LAMBDA_ASSUMED.avgBytes);
       let envs = ceiling;
       let scaling = false;
       if (state && ctx.dt !== undefined) {
-        const demandEnvs = (toRps(offeredMbps(ctx), LAMBDA_ASSUMED.avgBytes) * duration) / 1000;
+        const demandEnvs = (toRps(offeredMbps(ctx), size) * duration) / 1000;
         if (!advanced(state, ctx)) {
-          const created = Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * ctx.dt.value, ceiling - state.warmEnvs);
+          const dt = ctx.dt.value;
+          // warmEnvs above the ceiling after a config change are reclaimed like idle ones
+          const idle = Math.max(0, state.warmEnvs - Math.min(demandEnvs, ceiling));
+          state.warmEnvs -= Math.min(idle, (idle * dt) / LAMBDA_ASSUMED.idleReclaimS);
+          const created = Math.min(Math.max(0, demandEnvs - state.warmEnvs), LAMBDA_FIXED.scaleRatePerSec * dt, Math.max(0, ceiling - state.warmEnvs));
           state.warmEnvs += created;
           state.createdEnvs = created;
           state.tick = ctx.tick;
         }
-        envs = state.warmEnvs;
+        envs = Math.min(state.warmEnvs, ceiling);
         scaling = demandEnvs > envs;
       }
       return pipe(
         offered(ctx, ModelTier.Measured),
-        cap(capacityForEnvs(envs, config)),
+        cap(capacityForEnvs(envs, config, size)),
         splitEven(ctx.outputCount),
         note(scaling && "scaling: demand exceeds warm environments (429 for sync)"),
       );

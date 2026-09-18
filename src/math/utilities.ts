@@ -10,6 +10,7 @@ import {
   type Mbps,
   type Milliseconds,
   type ModelTier,
+  type RampState,
   type Ratio,
   type Seconds,
   type Stamped,
@@ -59,6 +60,13 @@ export function resolve<C extends object>(defaults: Required<C>, config: C | und
 export function offeredMbps(ctx: ThroughputContext): Mbps {
   return mbps(ctx.inputsMbps.reduce((acc, m) => acc + m.value, 0));
 }
+
+// request size: the edge's, else the node's assumption
+export const sizeOf = (ctx: ThroughputContext, fallback: Bytes): Bytes => ctx.avgBytes ?? fallback;
+
+// AWS SDK default maxAttempts = 3 → 2 retries; browsers do not retry 5xx
+export const SDK_RETRIES = 2;
+export const CLIENT_RETRIES = 0;
 
 // ---- result pipeline: pure steps over a result (throughput or latency) ----
 
@@ -131,8 +139,6 @@ export function scaleOutputs(factor: number): Step {
   return (r) => ({ ...r, outputsMbps: r.outputsMbps.map((m) => mbps(m.value * factor)) });
 }
 
-// ---- burstable bandwidth (EC2 / Fargate network I/O credits) ----
-
 // ---- tick stamps: stateful models advance once per tick; readers trust only same-tick state ----
 
 // true when `state` was already advanced for `ctx.tick` (untracked ticks never match)
@@ -141,6 +147,60 @@ export const advanced = (state: Stamped, ctx: ThroughputContext): boolean => ctx
 // `state` if it is usable for this tick (advanced this tick, or ticks untracked), else undefined
 export const current = <S extends Stamped>(state: S | undefined, ctx: ThroughputContext): S | undefined =>
   state !== undefined && (ctx.tick === undefined || state.tick === ctx.tick) ? state : undefined;
+
+// ---- ramp: capacity that scales with a rate and a delay ----
+
+export interface RampSpec {
+  floor: number;
+  ceiling: number;
+  // units per second; Infinity = step
+  rateUp: number;
+  rateDown: number;
+  // first-order lag instead of a fixed rate: amount = gap · dt / tauS
+  tauS?: number;
+  // sustained demand before scaling (alarm evaluation periods)
+  delayUpS: number;
+  delayDownS: number;
+  // ordered capacity joins after this (launch + health checks)
+  launchS: number;
+  cooldownS: number;
+}
+
+export function newRampState(level: number): RampState {
+  return { level, pending: [], timeS: 0, aboveS: 0, belowS: 0, lastScaleS: -Infinity };
+}
+
+// Advance once per tick toward `desired`; returns the capacity in service this tick.
+export function ramp(state: RampState, desired: number, spec: RampSpec, ctx: ThroughputContext): number {
+  if (ctx.dt === undefined || advanced(state, ctx)) return state.level;
+  const dt = ctx.dt.value;
+  state.timeS += dt;
+  state.tick = ctx.tick;
+  state.pending = state.pending.filter((p) => {
+    if (p.readyAtS > state.timeS) return true;
+    state.level += p.amount;
+    return false;
+  });
+  const ordered = state.level + state.pending.reduce((acc, p) => acc + p.amount, 0);
+  const target = clamp(desired, spec.floor, spec.ceiling);
+  state.aboveS = target > ordered ? state.aboveS + dt : 0;
+  state.belowS = target < state.level ? state.belowS + dt : 0;
+  const cool = state.timeS - state.lastScaleS >= spec.cooldownS;
+  const step = (gap: number, rate: number) => (spec.tauS !== undefined ? (gap * dt) / spec.tauS : Math.min(gap, rate * dt));
+  if (target > ordered && state.aboveS >= spec.delayUpS && cool) {
+    const amount = step(target - ordered, spec.rateUp);
+    if (amount > 0) {
+      if (spec.launchS > 0) state.pending.push({ readyAtS: state.timeS + spec.launchS, amount });
+      else state.level += amount;
+      state.lastScaleS = state.timeS;
+    }
+  } else if (target < state.level && state.belowS >= spec.delayDownS && cool) {
+    state.level -= step(state.level - target, spec.rateDown);
+    state.lastScaleS = state.timeS;
+  }
+  state.level = clamp(state.level, spec.floor, spec.ceiling);
+  return state.level;
+}
 
 // ---- burstable bandwidth (EC2 / Fargate network I/O credits) ----
 
@@ -236,6 +296,7 @@ export function start(serviceMs: Milliseconds, model: ModelTier): LatencyResult 
     waitMs: ms(0),
     p50Ms: serviceMs,
     p99Ms: serviceMs,
+    tailMs: serviceMs,
     utilization: 0,
     servers: 0,
     model,
@@ -249,6 +310,7 @@ export function wait(q: QueueWait, servers: number): LatencyStep {
     waitMs: q.p99Ms,
     p50Ms: ms(r.serviceMs.value + q.p50Ms.value),
     p99Ms: ms(r.serviceMs.value + q.p99Ms.value),
+    tailMs: ms(r.serviceMs.value + q.p99Ms.value),
     utilization: q.rho,
     servers,
   });
@@ -258,16 +320,22 @@ export function mix(branches: readonly (TailBranch & { p50Ms: Milliseconds })[])
   return (r) => {
     const total = branches.reduce((acc, b) => acc + b.share, 0);
     const p50 = total > 0 ? branches.reduce((acc, b) => acc + (b.share / total) * b.p50Ms.value, 0) : r.p50Ms.value;
-    return { ...r, p50Ms: ms(p50), p99Ms: tailMix(branches) };
+    const p99 = tailMix(branches);
+    return { ...r, p50Ms: ms(p50), p99Ms: p99, tailMs: p99 };
   };
+}
+
+// set p99 directly (measured tables, bimodal models); keeps tailMs in step
+export function tail(p99Ms: Milliseconds): LatencyStep {
+  return (r) => ({ ...r, p99Ms, tailMs: p99Ms });
 }
 
 // only p99 is known downstream, so p50 stays the node's own
 export function downstream(p99Ms: Milliseconds | undefined): LatencyStep {
-  return (r) => (p99Ms === undefined ? r : { ...r, p99Ms: ms(r.p99Ms.value + p99Ms.value) });
+  return (r) => (p99Ms === undefined ? r : { ...r, p99Ms: ms(r.p99Ms.value + p99Ms.value), tailMs: ms(r.tailMs.value + p99Ms.value) });
 }
 
-// overloaded → p99 is the documented timeout, not ∞
+// overloaded → p99 is the documented timeout, not ∞ (tailMs keeps the uncapped value)
 export function capTimeout(timeoutMs: Milliseconds): LatencyStep {
   return (r) => ({
     ...r,

@@ -5,6 +5,8 @@ export enum S3StorageTier {
   GLACIER_INSTANT = "GLACIER_INSTANT",
   GLACIER_FLEXIBLE = "GLACIER_FLEXIBLE",
   DEEP_ARCHIVE = "DEEP_ARCHIVE",
+  INTELLIGENT_TIERING = "INTELLIGENT_TIERING",
+  EXPRESS_ONE_ZONE = "EXPRESS_ONE_ZONE",
 }
 
 export enum GlacierRetrievalSpeed {
@@ -41,6 +43,10 @@ const TIER_API_RATES: Record<S3StorageTier, ApiRates> = {
   [S3StorageTier.GLACIER_INSTANT]: { writePer1000: 0.01, readPer1000: 0.0004 },
   [S3StorageTier.GLACIER_FLEXIBLE]: { writePer1000: 0.05, readPer1000: 0.05 },
   [S3StorageTier.DEEP_ARCHIVE]: { writePer1000: 0.05, readPer1000: 0.05 },
+  // same request prices as Standard (monitoring fee is in calculateManagementFees)
+  [S3StorageTier.INTELLIGENT_TIERING]: { writePer1000: 0.005, readPer1000: 0.0004 },
+  // April 2025 price cut: PUT $0.00113, GET $0.00003 per 1,000
+  [S3StorageTier.EXPRESS_ONE_ZONE]: { writePer1000: 0.00113, readPer1000: 0.00003 },
 };
 
 export function calculateRequestFees(volume: RequestVolume, tier: S3StorageTier): number {
@@ -115,6 +121,9 @@ function getRetrievalRate(tier: S3StorageTier, speed: GlacierRetrievalSpeed): nu
       [GlacierRetrievalSpeed.STANDARD]: 0.02,
       [GlacierRetrievalSpeed.BULK]: 0.0025,
     },
+    [S3StorageTier.INTELLIGENT_TIERING]: 0.0,
+    // $0.0006/GB data retrieval (April 2025)
+    [S3StorageTier.EXPRESS_ONE_ZONE]: 0.0006,
   };
 
   const tierRate = rates[tier];

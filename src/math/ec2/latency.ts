@@ -1,23 +1,18 @@
-import { ModelTier, type CreditState, type LatencyModel, type Mbps, type Milliseconds } from "../../types/math";
-import { bytes, current, KiB, mmc, ms, note, num, offeredMbps, parseCsv, pipe, resolve, start, toRps, wait, xferMs, type QueueWait } from "../utilities";
+import { ModelTier, type Bytes, type CreditState, type LatencyModel, type Mbps, type Milliseconds } from "../../types/math";
+import { current, mmc, ms, note, num, offeredMbps, parseCsv, pipe, resolve, sizeOf, start, toRps, wait, xferMs, type QueueWait } from "../utilities";
 import instanceCsv from "./instancetype.csv?raw";
-import { baselineMbps, EC2_DEFAULTS, resolveSpec, type EC2Config, type InstanceSpec } from "./throughput";
+import { baselineMbps, cpuServers, EC2_ASSUMED, EC2_DEFAULTS, resolveSpec, type EC2Config, type InstanceSpec } from "./throughput";
 
-// M/M/1 on the NIC (same ρ as the throughput model) plus an assumed processing time.
+// M/M/c on the CPU threads and M/M/1 on the NIC; the wait comes from whichever is busier
+// (same ρ as the throughput model).
 // Spec: .references/reduced-formulas-latency.md §3.1
-
-export const EC2_LATENCY_ASSUMED = {
-  avgBytes: bytes(50 * KiB),
-  processingMs: ms(5),
-  nicMs: ms(0.1),
-} as const;
 
 // efa_latency_microseconds, 0 = not published
 const NIC_LATENCY_US: Record<string, number> = Object.fromEntries(parseCsv(instanceCsv).map((row) => [row.instance_type, num(row.efa_latency_microseconds, 0)]));
 
 export function nicLatencyMs(instanceType: string): { ms: Milliseconds; measured: boolean } {
   const us = NIC_LATENCY_US[instanceType] ?? 0;
-  return us > 0 ? { ms: ms(us / 1000), measured: true } : { ms: EC2_LATENCY_ASSUMED.nicMs, measured: false };
+  return us > 0 ? { ms: ms(us / 1000), measured: true } : { ms: ms(EC2_ASSUMED.nicMs), measured: false };
 }
 
 // what the last tick granted; steady state = burst
@@ -25,10 +20,22 @@ export function availableMbps(spec: InstanceSpec, state?: CreditState): Mbps {
   return state?.availableMbps ?? (state !== undefined && state.creditsMbit <= 0 ? baselineMbps(spec).mbps : spec.burstMbps);
 }
 
-export function linkQueue(demand: Mbps, bw: Mbps, avgBytes = EC2_LATENCY_ASSUMED.avgBytes): { xfer: Milliseconds; queue: QueueWait } {
-  const xfer = xferMs(avgBytes, bw);
-  const mu = xfer.value > 0 ? 1000 / xfer.value : Infinity;
-  return { xfer, queue: mmc(toRps(demand, avgBytes), mu, 1) };
+export interface InstanceQueue {
+  xfer: Milliseconds;
+  // the busier of link / cpu
+  queue: QueueWait;
+  servers: number;
+  cpuBound: boolean;
+}
+
+// One instance: `demand` Mbps of `size` requests over `servers` CPU threads and a `bw` link.
+export function instanceQueue(demand: Mbps, bw: Mbps, servers: number, size: Bytes, cpuEfficiency = 1): InstanceQueue {
+  const xfer = xferMs(size, bw);
+  const rps = toRps(demand, size);
+  const link = mmc(rps, xfer.value > 0 ? 1000 / xfer.value : Infinity, 1);
+  const cpu = mmc(rps, (1000 * cpuEfficiency) / EC2_ASSUMED.processingMs, servers);
+  const cpuBound = cpu.rho >= link.rho;
+  return { xfer, queue: cpuBound ? cpu : link, servers: cpuBound ? servers : 1, cpuBound };
 }
 
 export const model: LatencyModel<EC2Config, CreditState> = {
@@ -41,15 +48,15 @@ export const model: LatencyModel<EC2Config, CreditState> = {
     return (ctx) => {
       const s = current(state, ctx);
       const bw = availableMbps(spec, s);
-      const { xfer, queue } = linkQueue(offeredMbps(ctx), bw);
+      const q = instanceQueue(offeredMbps(ctx), bw, cpuServers(spec), sizeOf(ctx, EC2_ASSUMED.avgBytes));
       return pipe(
-        start(ms(EC2_LATENCY_ASSUMED.processingMs.value + nic.ms.value + xfer.value), ModelTier.Estimated),
-        wait(queue, 1),
-        note(`processingMs ${EC2_LATENCY_ASSUMED.processingMs.value} assumed`),
+        start(ms(EC2_ASSUMED.processingMs + nic.ms.value + q.xfer.value), ModelTier.Estimated),
+        wait(q.queue, q.servers),
+        note(`processingMs ${EC2_ASSUMED.processingMs} assumed; ${q.cpuBound ? "CPU" : "link"} queue binds`),
         note(!nic.measured && "NIC latency assumed (no CSV figure)"),
         note(bw.value < spec.burstMbps.value && "network credits exhausted: link at baseline"),
         note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
-        note(queue.rho >= 1 && "link overloaded: p99 unbounded"),
+        note(q.queue.rho >= 1 && "overloaded: p99 unbounded"),
       );
     };
   },

@@ -1,11 +1,12 @@
-import { DropKind, ModelTier, type CreditState, type DropModel } from "../../types/math";
-import { cause, current, mbps, note, pipe, resolve, startDrop } from "../utilities";
-import { FARGATE_DEFAULTS, taskAvailableMbps, taskBaselineMbps, taskBurstMbps, type FargateConfig } from "./throughput";
+import { DropKind, ModelTier, type DropModel } from "../../types/math";
+import { cause, current, mbps, note, pipe, resolve, sizeOf, startDrop } from "../utilities";
+import { EC2_ASSUMED } from "../ec2/throughput";
+import { FARGATE_DEFAULTS, FARGATE_SCALING, taskAvailableMbps, taskBaselineMbps, taskBurstMbps, taskCapacityMbps, tasksInService, type FargateConfig, type FargateState } from "./throughput";
 
-// Overflow = 503 from overloaded tasks. Steady state: no scaling policy in config, so no scale-out lag.
+// Overflow = 503 from overloaded tasks; during scale-out the existing tasks absorb the spike.
 // Spec: .references/reduced-formulas-drop.md §3.2
 
-export const model: DropModel<FargateConfig, CreditState> = {
+export const model: DropModel<FargateConfig, FargateState> = {
   defaults: FARGATE_DEFAULTS,
 
   evaluate(config, state) {
@@ -13,16 +14,17 @@ export const model: DropModel<FargateConfig, CreditState> = {
     const base = taskBaselineMbps(c.vcpu, c.memGiB).mbps;
     const burst = taskBurstMbps(c.vcpu, c.memGiB);
     return (ctx) => {
-      const s = current(state, ctx);
-      const perTask = taskAvailableMbps(base, burst, s);
-      const r = startDrop(ctx, mbps(c.tasks * perTask.value), ModelTier.Measured);
+      const credits = current(state?.credits, ctx);
+      const perTask = taskCapacityMbps(c, taskAvailableMbps(base, burst, credits), sizeOf(ctx, EC2_ASSUMED.avgBytes));
+      const tasks = tasksInService(c, state, ctx);
+      const pending = state?.scale.pending.length ?? 0;
+      const r = startDrop(ctx, mbps(tasks * perTask.mbps.value), ModelTier.Measured);
       return pipe(
         r,
         cause(DropKind.Overflow, r.rawDrop),
-        note(r.rawDrop.value > 0 && "tasks overloaded: 503s"),
-        note(perTask.value < burst.value && "network credits exhausted: capacity at baseline"),
-        note(state !== undefined && s === undefined && "state not advanced this tick: steady state"),
-        note("steady state: scale-out lag (≈ 420 s to a healthy new task) not modelled without a scaling policy"),
+        note(r.rawDrop.value > 0 && (pending > 0 ? `tasks overloaded while scaling out (~${FARGATE_SCALING.delayUpS + FARGATE_SCALING.launchS} s to a healthy task): 503s` : "tasks overloaded: 503s")),
+        note(perTask.mbps.value < burst.value && !perTask.cpuBound && "network credits exhausted: capacity at baseline"),
+        note(state !== undefined && credits === undefined && "state not advanced this tick: steady state"),
       );
     };
   },

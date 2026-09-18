@@ -1,5 +1,5 @@
-import { ModelTier, type Mbps, type ServiceModel } from "../../types/math";
-import { bytes, cap, isFinite, KiB, mbps, note, offered, offeredMbps, pipe, resolve, splitEven, toRps } from "../utilities";
+import { ModelTier, type Bytes, type Mbps, type ServiceModel } from "../../types/math";
+import { bytes, cap, isFinite, KiB, mbps, note, offered, offeredMbps, pipe, resolve, sizeOf, splitEven, toRps } from "../utilities";
 
 // Elastic Load Balancing. At setup you choose ALB vs NLB and, optionally, an LCU
 // reservation; everything else auto-scales. LCU usage is estimated from the offered
@@ -39,9 +39,9 @@ export interface LcuBreakdown {
   lcu: number;
 }
 
-export function lcuFromThroughput(m: Mbps, kind: LBKind = LB_DEFAULTS.kind): LcuBreakdown {
+export function lcuFromThroughput(m: Mbps, kind: LBKind = LB_DEFAULTS.kind, size: Bytes = LB_ASSUMED.avgBytes): LcuBreakdown {
   const a = LB_ASSUMED;
-  const rps = toRps(m, a.avgBytes);
+  const rps = toRps(m, size);
   // NewConnectionCount counts client→LB and LB→target
   const newCps = rps * (1 - a.keepAliveRatio) * 2;
   const active = rps * a.connSeconds;
@@ -54,10 +54,10 @@ export function lcuFromThroughput(m: Mbps, kind: LBKind = LB_DEFAULTS.kind): Lcu
 }
 
 // Mbps still available under a reservation once connection/rule dimensions are paid for.
-export function reservedCapacity(m: Mbps, config?: LBConfig): Mbps {
+export function reservedCapacity(m: Mbps, config?: LBConfig, size?: Bytes): Mbps {
   const c = resolve(LB_DEFAULTS, config);
   if (c.reservedLcu <= 0) return mbps(Infinity);
-  const b = lcuFromThroughput(m, c.kind);
+  const b = lcuFromThroughput(m, c.kind, size);
   return mbps(Math.max(0, c.reservedLcu - Math.max(b.newConnLcu, b.activeConnLcu, b.rulesLcu)) * LCU_MBPS.value);
 }
 
@@ -74,8 +74,9 @@ export const model: ServiceModel<LBConfig> = {
     const c = resolve(LB_DEFAULTS, config);
     return (ctx) => {
       const o = offeredMbps(ctx);
-      const capacity = reservedCapacity(o, c);
-      const b = lcuFromThroughput(o, c.kind);
+      const size = sizeOf(ctx, LB_ASSUMED.avgBytes);
+      const capacity = reservedCapacity(o, c, size);
+      const b = lcuFromThroughput(o, c.kind, size);
       return pipe(
         offered(ctx, ModelTier.Estimated),
         cap(capacity),

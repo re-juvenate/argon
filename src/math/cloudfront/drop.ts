@@ -1,7 +1,7 @@
 import { DropKind, ModelTier, type DropModel } from "../../types/math";
-import { cause, combine, meanRatio, ms, note, pipe, ratio, resolve, startDrop, tailExceed } from "../utilities";
+import { cause, combine, meanRatio, note, pipe, ratio, resolve, sizeOf, startDrop, tailExceed } from "../utilities";
 import { CLOUDFRONT_LATENCY_FIXED } from "./latency";
-import { CLOUDFRONT_DEFAULTS, model as throughput, originShare, type CloudFrontConfig } from "./throughput";
+import { capacityFor, CLOUDFRONT_ASSUMED, CLOUDFRONT_DEFAULTS, originShare, type CloudFrontConfig } from "./throughput";
 
 // Quota throttle + origin errors and 504s, scaled by the origin share.
 // Spec: .references/reduced-formulas-drop.md §3.8
@@ -11,13 +11,12 @@ export const model: DropModel<CloudFrontConfig> = {
 
   evaluate(config) {
     const c = resolve(CLOUDFRONT_DEFAULTS, config);
-    const capacity = throughput.capacity(c);
     const share = originShare(c);
     return (ctx) => {
-      const r = startDrop(ctx, capacity, ModelTier.Estimated);
+      const r = startDrop(ctx, capacityFor(sizeOf(ctx, CLOUDFRONT_ASSUMED.avgBytes)), ModelTier.Estimated);
+      // origins share the miss traffic evenly: mean over origins for both terms
       const originDrop = meanRatio(ctx.downstreamDrop);
-      const originTail = ctx.downstreamMs && ctx.downstreamMs.length > 0 ? ms(Math.max(...ctx.downstreamMs.map((m) => m.value))) : undefined;
-      const originTimeout = tailExceed(originTail, CLOUDFRONT_LATENCY_FIXED.originResponseTimeoutMs);
+      const originTimeout = meanRatio(ctx.downstreamMs?.map((m) => tailExceed(m, CLOUDFRONT_LATENCY_FIXED.originResponseTimeoutMs)));
       const origin = combine([originDrop, originTimeout]);
       return pipe(
         r,

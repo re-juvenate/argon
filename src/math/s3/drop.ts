@@ -1,14 +1,12 @@
 import { DropKind, ModelTier, type DropModel } from "../../types/math";
-import { cause, note, num, parseCsv, pipe, ratio, resolve, retried, startDrop } from "../utilities";
+import { cause, note, num, parseCsv, pipe, ratio, resolve, retried, SDK_RETRIES, sizeOf, startDrop, toMbps } from "../utilities";
 import { S3StorageTier } from "./cost";
-import { ARCHIVE_TIERS, model as throughput, S3_DEFAULTS, type S3Config } from "./throughput";
-import tiersCsv from "./tiers.csv?raw";
+import { ARCHIVE_TIERS, capacityRps, S3_ASSUMED, S3_DEFAULTS, type S3Config, type S3State } from "./throughput";
+import { readFileSync } from "node:fs"; const tiersCsv = readFileSync(new URL("./tiers.csv", import.meta.url), "utf8");
 
 // 503 SlowDown over the per-prefix quota (SDK-retried) + availability design from tiers.csv.
 // Archive tiers: capacity 0 → rawDrop 1.
 // Spec: .references/reduced-formulas-drop.md §3.7
-
-export const S3_DROP_ASSUMED = { sdkRetries: 3 } as const;
 
 // S3StorageTier → tiers.csv "Storage Class"
 const TIER_ROW: Record<S3StorageTier, string> = {
@@ -18,6 +16,8 @@ const TIER_ROW: Record<S3StorageTier, string> = {
   [S3StorageTier.GLACIER_INSTANT]: "S3 Glacier Instant Retrieval",
   [S3StorageTier.GLACIER_FLEXIBLE]: "S3 Glacier Flexible Retrieval",
   [S3StorageTier.DEEP_ARCHIVE]: "S3 Glacier Deep Archive",
+  [S3StorageTier.INTELLIGENT_TIERING]: "S3 Intelligent-Tiering (Frequent)",
+  [S3StorageTier.EXPRESS_ONE_ZONE]: "S3 Express One Zone",
 };
 
 const AVAILABILITY: Record<string, number> = Object.fromEntries(
@@ -29,22 +29,22 @@ export function availabilityDesign(tier: S3StorageTier): number | undefined {
   return Number.isFinite(a) ? a : undefined;
 }
 
-export const model: DropModel<S3Config> = {
+export const model: DropModel<S3Config, S3State> = {
   defaults: S3_DEFAULTS,
 
-  evaluate(config) {
+  evaluate(config, state) {
     const c = resolve(S3_DEFAULTS, config);
-    const capacity = throughput.capacity(c);
     const availability = availabilityDesign(c.tier);
+    const archive = ARCHIVE_TIERS.has(c.tier);
     return (ctx) => {
+      const capacity = archive ? toMbps(0, S3_ASSUMED.objectBytes) : toMbps(capacityRps(c, state, ctx), sizeOf(ctx, S3_ASSUMED.objectBytes));
       const r = startDrop(ctx, capacity, ModelTier.Measured);
-      const archive = ARCHIVE_TIERS.has(c.tier);
       return pipe(
         r,
-        cause(DropKind.Throttle, archive ? r.rawDrop : retried(r.rawDrop, S3_DROP_ASSUMED.sdkRetries)),
+        cause(DropKind.Throttle, archive ? r.rawDrop : retried(r.rawDrop, SDK_RETRIES)),
         cause(DropKind.Unavailable, ratio(availability === undefined ? 0 : 1 - availability)),
         note(archive && "archive tier: no synchronous reads"),
-        note(!archive && r.rawDrop.value > 0 && `503 SlowDown: raw ${(r.rawDrop.value * 100).toFixed(1)}% (sustained bound) before ${S3_DROP_ASSUMED.sdkRetries} SDK retries`),
+        note(!archive && r.rawDrop.value > 0 && `503 SlowDown: raw ${(r.rawDrop.value * 100).toFixed(1)}% (sustained bound) before ${SDK_RETRIES} SDK retries`),
         note(availability !== undefined ? `availability design ${(availability * 100).toFixed(2)}% (tiers.csv)` : "no availability row in tiers.csv"),
       );
     };

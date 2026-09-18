@@ -1,6 +1,6 @@
 import { ModelTier, type LatencyModel, type Milliseconds } from "../../types/math";
-import { ms, note, offeredMbps, pipe, resolve, start } from "../utilities";
-import { model as throughput, QueueType, SQS_DEFAULTS, type SQSConfig } from "./throughput";
+import { ms, note, offeredMbps, pipe, resolve, sizeOf, start, tail } from "../utilities";
+import { capacityFor, QueueType, SQS_ASSUMED, SQS_DEFAULTS, type SQSConfig } from "./throughput";
 
 // Measured end-to-end percentiles (lucvandonkersgoed 2022). No backlog term: the consumer rate
 // is downstream and not in the context.
@@ -17,12 +17,13 @@ export const model: LatencyModel<SQSConfig> = {
   evaluate(config) {
     const c = resolve(SQS_DEFAULTS, config);
     const measured = SQS_LATENCY_MEASURED[c.queueType];
-    const capacity = throughput.capacity(c);
     return (ctx) => {
+      const capacity = capacityFor(c, sizeOf(ctx, SQS_ASSUMED.msgBytes));
       const rho = Number.isFinite(capacity.value) && capacity.value > 0 ? offeredMbps(ctx).value / capacity.value : 0;
       return pipe(
         start(measured.p50Ms, ModelTier.Measured),
-        (r) => ({ ...r, p99Ms: measured.p99Ms, utilization: rho }),
+        (r) => ({ ...r, utilization: rho }),
+        tail(measured.p99Ms),
         note("measured end-to-end percentiles; consumer backlog not modelled (consumer rate unknown)"),
         note(rho >= 1 && "FIFO quota exceeded: throttled (loss), latency of delivered messages unchanged"),
       );

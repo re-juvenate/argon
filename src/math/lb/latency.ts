@@ -36,7 +36,7 @@ export const model: LatencyModel<LBConfig> = {
       const targetTail = targets && targets.length > 0 ? tailMix(targets.map((p99Ms) => ({ share: 1 / targets.length, p99Ms }))) : undefined;
       return pipe(
         start(own, ModelTier.Assumed),
-        downstream(targetTail && ms(Math.min(targetTail.value, LB_LATENCY_FIXED.idleTimeoutMs.value))),
+        downstream(targetTail),
         capTimeout(ms(own.value + LB_LATENCY_FIXED.idleTimeoutMs.value)),
         note(`${c.kind.toUpperCase()} overhead assumed; cross-zone hop ${crossZoneHopMs().toFixed(2)} ms (crossAz 1 ms × (1 − 1/${LB_LATENCY_ASSUMED.azCount}))`),
         note(targetTail !== undefined && targetTail.value > LB_LATENCY_FIXED.idleTimeoutMs.value && "target tail exceeds idle timeout: 504s (see loss model)"),

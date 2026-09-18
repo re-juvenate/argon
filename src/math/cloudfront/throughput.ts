@@ -1,5 +1,5 @@
-import { ModelTier, type ServiceModel } from "../../types/math";
-import { bytes, cap, KiB, mbps, note, offered, pipe, resolve, scaleOutputs, splitEven, toMbps } from "../utilities";
+import { ModelTier, type Bytes, type ServiceModel } from "../../types/math";
+import { bytes, cap, KiB, mbps, note, offered, pipe, resolve, scaleOutputs, sizeOf, splitEven, toMbps } from "../utilities";
 
 // CloudFront. At setup you choose whether Origin Shield is on; the per-distribution quotas
 // (150 Gbps, 250,000 rps) are AWS's. Cache hit ratios are properties of the content, so
@@ -23,6 +23,8 @@ export const CLOUDFRONT_ASSUMED = {
   dynamicFraction: 0.1,
 } as const;
 
+export const capacityFor = (size: Bytes) => mbps(Math.min(CLOUDFRONT_FIXED.dataTransferMbps.value, toMbps(CLOUDFRONT_FIXED.requestsPerSec, size).value));
+
 // Share of served viewer traffic that reaches the origin.
 export function originShare(config?: CloudFrontConfig): number {
   const c = resolve(CLOUDFRONT_DEFAULTS, config);
@@ -35,17 +37,16 @@ export const model: ServiceModel<CloudFrontConfig> = {
   defaults: CLOUDFRONT_DEFAULTS,
 
   capacity() {
-    return mbps(Math.min(CLOUDFRONT_FIXED.dataTransferMbps.value, toMbps(CLOUDFRONT_FIXED.requestsPerSec, CLOUDFRONT_ASSUMED.avgBytes).value));
+    return capacityFor(CLOUDFRONT_ASSUMED.avgBytes);
   },
 
   // servedMbps = viewer-facing; outputsMbps = origin-facing
   evaluate(config) {
     const share = originShare(config);
-    const capacity = model.capacity();
     return (ctx) =>
       pipe(
         offered(ctx, ModelTier.Estimated),
-        cap(capacity),
+        cap(capacityFor(sizeOf(ctx, CLOUDFRONT_ASSUMED.avgBytes))),
         splitEven(ctx.outputCount),
         scaleOutputs(share),
         note(`origin share ${(share * 100).toFixed(1)}% of served`),

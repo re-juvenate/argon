@@ -1,5 +1,5 @@
-import { ModelTier, type ServiceModel } from "../../types/math";
-import { bytes, cap, isFinite, KiB, mbps, note, offered, pipe, resolve, splitEven, toMbps } from "../utilities";
+import { ModelTier, type Bytes, type Mbps, type ServiceModel } from "../../types/math";
+import { bytes, cap, isFinite, KiB, mbps, note, offered, pipe, resolve, sizeOf, splitEven, toMbps } from "../utilities";
 
 // SQS. At setup you choose standard vs FIFO, and for FIFO whether high-throughput mode is on
 // (its quota depends on the region). Message size is an assumption.
@@ -54,24 +54,27 @@ export function messagesPerSecond(config?: SQSConfig): number {
   return tps * (SQS_ASSUMED.batched ? SQS_FIXED.batchSize : 1);
 }
 
+export function capacityFor(config: SQSConfig | undefined, size: Bytes): Mbps {
+  const mps = messagesPerSecond(config);
+  return Number.isFinite(mps) ? toMbps(mps, bytes(Math.min(size.value, SQS_FIXED.maxMessageBytes.value))) : mbps(Infinity);
+}
+
 export const model: ServiceModel<SQSConfig> = {
   defaults: SQS_DEFAULTS,
 
   capacity(config) {
-    const mps = messagesPerSecond(config);
-    return Number.isFinite(mps)
-      ? toMbps(mps, bytes(Math.min(SQS_ASSUMED.msgBytes.value, SQS_FIXED.maxMessageBytes.value)))
-      : mbps(Infinity);
+    return capacityFor(config, SQS_ASSUMED.msgBytes);
   },
 
   evaluate(config) {
-    const capacity = model.capacity(config);
-    return (ctx) =>
-      pipe(
+    return (ctx) => {
+      const capacity = capacityFor(config, sizeOf(ctx, SQS_ASSUMED.msgBytes));
+      return pipe(
         offered(ctx, ModelTier.Measured),
         cap(capacity),
         splitEven(ctx.outputCount),
         note(!isFinite(capacity) && "standard queue: throughput nearly unlimited"),
       );
+    };
   },
 };

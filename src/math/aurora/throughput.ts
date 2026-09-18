@@ -1,5 +1,5 @@
-import { ModelTier, type ServiceModel } from "../../types/math";
-import { bytes, cap, note, offered, offeredMbps, pipe, resolve, served, splitEven, toMbps, toRps } from "../utilities";
+import { ModelTier, type RampState, type ServiceModel, type ThroughputContext } from "../../types/math";
+import { bytes, cap, newRampState, note, offered, offeredMbps, pipe, ramp, resolve, served, sizeOf, splitEven, toMbps, toRps, type RampSpec } from "../utilities";
 
 // Aurora. At setup you choose the writer instance class (or a serverless ACU maximum) and how
 // many readers. vCPU and max_connections come from AWS's class table; query cost and row
@@ -10,10 +10,14 @@ export interface AuroraConfig {
   instanceClass?: string;
   // serverless v2 max capacity in ACU (2 GiB each); > 0 overrides instanceClass
   maxAcu?: number;
+  minAcu?: number;
   readers?: number;
 }
 
-export const AURORA_DEFAULTS: Required<AuroraConfig> = { instanceClass: "db.r6g.large", maxAcu: 0, readers: 1 };
+export const AURORA_DEFAULTS: Required<AuroraConfig> = { instanceClass: "db.r6g.large", maxAcu: 0, minAcu: 0.5, readers: 1 };
+
+// serverless: current ACU
+export type AuroraState = RampState;
 
 export interface AuroraClass {
   vcpu: number;
@@ -48,10 +52,21 @@ export const AURORA_ASSUMED = {
   writerServesReads: true,
   queryMs: 5,
   rowBytes: bytes(2048),
-  qpsPerVcpu: 500,
+  // queries in flight per vCPU (IO-bound OLTP); qps per vCPU = concurrencyPerVcpu · 1000 / queryMs = 500
+  concurrencyPerVcpu: 2.5,
   // serverless: r-class ratio of 8 GiB per vCPU → vCPU ≈ ACU / 4
   acuPerVcpu: 4,
 } as const;
+
+export const qpsPerVcpu = (): number => (AURORA_ASSUMED.concurrencyPerVcpu * 1000) / AURORA_ASSUMED.queryMs;
+
+// serverless v2 scaling: 0.5-ACU steps, up fast, down after sustained low load (rates assumed)
+export const AURORA_RAMP = { rateUpAcuPerS: 1, rateDownAcuPerS: 0.5 / 15, delayDownS: 900 } as const;
+
+export function acuRamp(config?: AuroraConfig): RampSpec {
+  const c = resolve(AURORA_DEFAULTS, config);
+  return { floor: c.minAcu, ceiling: c.maxAcu, rateUp: AURORA_RAMP.rateUpAcuPerS, rateDown: AURORA_RAMP.rateDownAcuPerS, delayUpS: 0, delayDownS: AURORA_RAMP.delayDownS, launchS: 0, cooldownS: 0 };
+}
 
 // max_connections = GREATEST(log2(mem/805306368)*45, log2(mem/8187281408)*1000, 45), mem = acu × 2 GiB
 export function serverlessClass(acu: number): AuroraClass {
@@ -60,26 +75,37 @@ export function serverlessClass(acu: number): AuroraClass {
   return { vcpu: acu / AURORA_ASSUMED.acuPerVcpu, maxConnections };
 }
 
-export function resolveClass(config?: AuroraConfig): { cls: AuroraClass; note?: string } {
+// `acu` overrides maxAcu for the serverless class (current capacity from AuroraState)
+export function resolveClass(config?: AuroraConfig, acu?: number): { cls: AuroraClass; note?: string } {
   const c = resolve(AURORA_DEFAULTS, config);
-  if (c.maxAcu > 0) return { cls: serverlessClass(c.maxAcu), note: "serverless: vCPU ≈ ACU / 4 (assumed)" };
+  if (c.maxAcu > 0) return { cls: serverlessClass(acu ?? c.maxAcu), note: "serverless: vCPU ≈ ACU / 4 (assumed)" };
   const cls = AURORA_CLASSES[c.instanceClass];
   if (cls) return { cls };
   return { cls: AURORA_CLASSES[AURORA_DEFAULTS.instanceClass], note: `unknown class ${c.instanceClass}, using ${AURORA_DEFAULTS.instanceClass}` };
 }
 
 export function instanceRps(cls: AuroraClass): number {
-  return Math.min(cls.vcpu * AURORA_ASSUMED.qpsPerVcpu, (cls.maxConnections * 1000) / AURORA_ASSUMED.queryMs);
+  return Math.min(cls.vcpu * qpsPerVcpu(), (cls.maxConnections * 1000) / AURORA_ASSUMED.queryMs);
 }
 
-export function capacityRps(config?: AuroraConfig): { writeRps: number; readRps: number } {
-  const { cls } = resolveClass(config);
+export function capacityRps(config?: AuroraConfig, acu?: number): { writeRps: number; readRps: number } {
+  const { cls } = resolveClass(config, acu);
   const per = instanceRps(cls);
   const readers = resolve(AURORA_DEFAULTS, config).readers;
   return { writeRps: per, readRps: (AURORA_ASSUMED.writerServesReads ? per : 0) + readers * per };
 }
 
-export const model: ServiceModel<AuroraConfig> = {
+// serverless: ACU the current tick runs at (ramping toward demand); provisioned: undefined
+export function currentAcu(config: Required<AuroraConfig>, state: AuroraState | undefined, demandRps: number, ctx: ThroughputContext): number | undefined {
+  if (config.maxAcu <= 0) return undefined;
+  if (state === undefined) return config.maxAcu;
+  // ACU needed so that the work pool is at ~70 % utilization (assumed target)
+  const perAcuRps = instanceRps(serverlessClass(1));
+  const desired = demandRps / (perAcuRps * 0.7);
+  return ramp(state, desired, acuRamp(config), ctx);
+}
+
+export const model: ServiceModel<AuroraConfig, AuroraState> = {
   defaults: AURORA_DEFAULTS,
 
   capacity(config) {
@@ -87,22 +113,30 @@ export const model: ServiceModel<AuroraConfig> = {
     return toMbps(c.writeRps + c.readRps, AURORA_ASSUMED.rowBytes);
   },
 
-  evaluate(config) {
-    const { rowBytes, readFraction } = AURORA_ASSUMED;
-    const { cls, note: classNote } = resolveClass(config);
-    const c = capacityRps(config);
-    const capacity = model.capacity(config);
+  newState(config) {
+    return newRampState(resolve(AURORA_DEFAULTS, config).minAcu);
+  },
+
+  evaluate(config, state) {
+    const { readFraction } = AURORA_ASSUMED;
+    const c = resolve(AURORA_DEFAULTS, config);
     return (ctx) => {
-      // reads and writes saturate independently
+      const rowBytes = sizeOf(ctx, AURORA_ASSUMED.rowBytes);
       const offeredRps = toRps(offeredMbps(ctx), rowBytes);
-      const servedRps = Math.min(offeredRps * (1 - readFraction), c.writeRps) + Math.min(offeredRps * readFraction, c.readRps);
+      const perInstanceShare = 1 / (1 + c.readers);
+      const acu = currentAcu(c, state, offeredRps * Math.max(1 - readFraction, readFraction * perInstanceShare), ctx);
+      const { cls, note: classNote } = resolveClass(c, acu);
+      const cap_ = capacityRps(c, acu);
+      // reads and writes saturate independently
+      const servedRps = Math.min(offeredRps * (1 - readFraction), cap_.writeRps) + Math.min(offeredRps * readFraction, cap_.readRps);
       return pipe(
         offered(ctx, ModelTier.Assumed),
-        cap(capacity),
+        cap(toMbps(cap_.writeRps + cap_.readRps, rowBytes)),
         served(toMbps(servedRps, rowBytes)),
         splitEven(ctx.outputCount),
-        note(`writer ${cls.vcpu} vCPU / ${cls.maxConnections} conn; qpsPerVcpu assumed`),
+        note(`writer ${cls.vcpu} vCPU / ${cls.maxConnections} conn; concurrencyPerVcpu / queryMs assumed`),
         note(classNote),
+        note(acu !== undefined && state !== undefined && `serverless at ${acu.toFixed(1)} ACU (min ${c.minAcu}, max ${c.maxAcu}); ramp rates assumed`),
       );
     };
   },

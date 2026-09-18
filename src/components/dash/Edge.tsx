@@ -283,17 +283,23 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
             <path
               ref={(el) => {
-                if (el) {
-                  visiblePaths.current.set(edge.id, el);
-                } else {
-                  visiblePaths.current.delete(edge.id);
-                }
+                if (el) visiblePaths.current.set(edge.id, el);
+                else visiblePaths.current.delete(edge.id);
               }}
               d=""
               fill="none"
               stroke="#693cc5"
               strokeWidth={2}
-            />
+              strokeDasharray="5 5"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                from="10"
+                to="0"
+                dur="0.5s"
+                repeatCount="indefinite"
+              />
+            </path>
           </g>
         ))}
 

@@ -179,6 +179,10 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
       if (svg) {
         const host = svg.getBoundingClientRect();
+        const board = svg.parentElement;
+        const scale = board && board.offsetWidth > 0 ? host.width / board.offsetWidth : 1;
+        const localX = (x: number) => (x - host.left) / scale;
+        const localY = (y: number) => (y - host.top) / scale;
 
         for (const edge of edgesRef.current) {
           const visible = visiblePaths.current.get(edge.id);
@@ -198,10 +202,10 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
             continue;
           }
 
-          const sx = from.left + from.width / 2 - host.left;
-          const sy = from.top + from.height / 2 - host.top;
-          const tx = to.left + to.width / 2 - host.left;
-          const ty = to.top + to.height / 2 - host.top;
+          const sx = localX(from.left + from.width / 2);
+          const sy = localY(from.top + from.height / 2);
+          const tx = localX(to.left + to.width / 2);
+          const ty = localY(to.top + to.height / 2);
           const forward = tx >= sx;
 
           const [path] = getBezierPath({
@@ -223,10 +227,10 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
         if (dashed && from) {
           const rect = from.getBoundingClientRect();
 
-          const sx = rect.left + rect.width / 2 - host.left;
-          const sy = rect.top + rect.height / 2 - host.top;
-          const tx = pointer.current.x - host.left;
-          const ty = pointer.current.y - host.top;
+          const sx = localX(rect.left + rect.width / 2);
+          const sy = localY(rect.top + rect.height / 2);
+          const tx = localX(pointer.current.x);
+          const ty = localY(pointer.current.y);
           const forward = tx >= sx;
 
           const [path] = getBezierPath({

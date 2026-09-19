@@ -3,8 +3,9 @@ import { evaluateDrop, evaluateLatency, evaluateThroughput, throughputCapacity, 
 import { model as asgThroughput, newASGState, type ASGState, type ASGTemplate } from "../math/asg/throughput"
 import { model as asgLatency } from "../math/asg/latency"
 import { model as asgDrop } from "../math/asg/drop"
-import { bytes, mbps, ms, ratio, seconds } from "../math/utilities"
-import { childrenOf, inputsOf, outputsOf, topoOrder } from "./graph"
+import { hopLoss, hopMs, lambdaPoolShare, resolveRegion, type Placement } from "../math/region/throughput"
+import { bytes, combine, mbps, ms, ratio, seconds } from "../math/utilities"
+import { childrenOf, inputsOf, nodeById, outputsOf, topoOrder } from "./graph"
 import type { Graph, GraphNode } from "./types"
 
 // Spec: .references/reduced-formulas-drop.md §5
@@ -32,19 +33,42 @@ export const isInstance = (graph: Graph, node: GraphNode): boolean => {
   return parent?.service === ServiceType.ASG
 }
 
+export const regionOf = (graph: Graph, node: GraphNode): GraphNode | undefined => {
+  for (let cur: GraphNode | undefined = node; cur?.parentId; ) {
+    cur = nodeById(graph, cur.parentId)
+    if (cur?.service === ServiceType.Region) return cur
+  }
+  return undefined
+}
+
+export const placementOf = (graph: Graph, node: GraphNode): Placement => {
+  const region = regionOf(graph, node)
+  return region ? { region: resolveRegion(region.config) } : {}
+}
+
+const effectiveConfig = (graph: Graph, node: GraphNode): Record<string, unknown> => {
+  if (node.service !== ServiceType.Lambda) return node.config
+  const region = regionOf(graph, node)
+  if (!region) return node.config
+  const peers = graph.nodes.filter((n) => n.service === ServiceType.Lambda && regionOf(graph, n)?.id === region.id)
+  const reserved = peers.map((n) => Number(n.config.reservedConcurrency ?? 0))
+  const share = lambdaPoolShare(resolveRegion(region.config), reserved)
+  return Number(node.config.reservedConcurrency ?? 0) > 0 ? node.config : { ...node.config, regionConcurrency: share }
+}
+
 export class Runtime {
   private bound = new Map<string, { deps: readonly unknown[]; b: Bound }>()
   private last = new Map<string, NodeResult>()
   tick = 0
 
-  private bindPlain(node: GraphNode): Bound {
-    const state = throughputModel(node.service).newState?.(node.config as never)
+  private bindPlain(node: GraphNode, config: Record<string, unknown>): Bound {
+    const state = throughputModel(node.service).newState?.(config as never)
     return {
       node,
       state,
-      throughput: evaluateThroughput(node.service, node.config as never, state as never),
-      latency: evaluateLatency(node.service, node.config as never, state as never),
-      drop: evaluateDrop(node.service, node.config as never, state as never),
+      throughput: evaluateThroughput(node.service, config as never, state as never),
+      latency: evaluateLatency(node.service, config as never, state as never),
+      drop: evaluateDrop(node.service, config as never, state as never),
     }
   }
 
@@ -95,9 +119,11 @@ export class Runtime {
   private bind(graph: Graph, node: GraphNode): Bound {
     const cached = this.bound.get(node.id)
     if (node.service !== ServiceType.ASG) {
-      if (cached && same(cached.deps, [node.config])) return cached.b
-      const b = this.bindPlain(node)
-      this.bound.set(node.id, { deps: [node.config], b })
+      const config = effectiveConfig(graph, node)
+      const deps = config === node.config ? [node.config] : [node.config, config.regionConcurrency]
+      if (cached && same(cached.deps, deps)) return cached.b
+      const b = this.bindPlain(node, config)
+      this.bound.set(node.id, { deps, b })
       return b
     }
     const children = childrenOf(graph, node.id)
@@ -159,11 +185,32 @@ export class Runtime {
       const inputs = inputsOf(graph, node.id)
       const outputs = outputsOf(graph, node.id)
       const inputsMbps = inputs.map((e) => tp.get(e.from)!.outputsMbps[outputsOf(graph, e.from).findIndex((o) => o.id === e.id)] ?? mbps(0))
+      const here = placementOf(graph, node)
       const downstream = outputs.map((e) => next.get(e.to) ?? this.last.get(e.to))
+      const hops = outputs.map((e) => {
+        const target = nodeById(graph, e.to)
+        const there = target ? placementOf(graph, target) : {}
+        return { ms: hopMs(here, there), loss: hopLoss(here, there) }
+      })
       const downstreamMs: Milliseconds[] = downstream.map((d) => d?.latency.tailMs ?? ms(0))
       const downstreamDrop: Ratio[] = downstream.map((d) => d?.drop.dropRate ?? ratio(0))
       const ctx = { inputsMbps, outputCount: outputs.length, dt, tick, avgBytes: sizeOf(inputs[0]?.avgBytes), downstreamMs, downstreamDrop }
-      next.set(node.id, { throughput: tp.get(node.id)!, latency: b.latency(ctx), drop: b.drop(ctx), state: b.state })
+      const hopMean = hops.length > 0 ? hops.reduce((a, h) => a + h.ms.value, 0) / hops.length : 0
+      const hopLossMean = hops.length > 0 ? ratio(hops.reduce((a, h) => a + h.loss.value, 0) / hops.length) : ratio(0)
+      const latency = b.latency(ctx)
+      const drop = b.drop(ctx)
+      next.set(node.id, {
+        throughput: tp.get(node.id)!,
+        latency: {
+          ...latency,
+          p50Ms: ms(latency.p50Ms.value + hopMean),
+          p99Ms: ms(latency.p99Ms.value + hopMean),
+          tailMs: ms(latency.tailMs.value + hopMean),
+          notes: hopMean > 0 ? [...latency.notes, `+${hopMean.toFixed(1)} ms region hop`] : latency.notes,
+        },
+        drop: hopLossMean.value > 0 ? { ...drop, dropRate: combine([drop.dropRate, hopLossMean]), notes: [...drop.notes, `+${(hopLossMean.value * 100).toFixed(2)}% region hop loss`] } : drop,
+        state: b.state,
+      })
       for (const [id, partial] of b.instances ?? []) {
         if (partial.throughput && partial.latency && partial.drop) next.set(id, partial as NodeResult)
       }

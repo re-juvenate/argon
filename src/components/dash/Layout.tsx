@@ -134,27 +134,21 @@ function Editor({
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return
-
     setPlaced((nodes) => nodes.filter(({ id }) => id !== selectedId))
-
     setSelectedId(null)
   }, [selectedId, setPlaced, setSelectedId])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!DELETION_KEYS.has(e.key)) return
-
       const target = e.target as HTMLElement | null
-
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) {
         return
       }
-
       deleteSelected()
     }
 
     window.addEventListener("keydown", onKeyDown)
-
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
@@ -163,7 +157,6 @@ function Editor({
   const onSelectPointerDown = useCallback(
     (e: ReactPointerEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
-
       setSelectedId(island?.dataset.islandId ?? null)
     },
     [setSelectedId],
@@ -171,30 +164,18 @@ function Editor({
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, service: ServiceType) => {
     e.dataTransfer.setData("text/service", service)
-
     e.dataTransfer.effectAllowed = "copy"
-
     const ghostContainer = document.createElement("div")
-
     ghostContainer.style.position = "absolute"
-
     ghostContainer.style.top = "-9999px"
-
     ghostContainer.style.left = "-9999px"
-
     ghostContainer.style.pointerEvents = "none"
-
     document.body.appendChild(ghostContainer)
-
     const ServiceComponent = SERVICES[service]
-
     const root = createRoot(ghostContainer)
-
     root.render(<ServiceComponent />)
-
     setTimeout(() => {
       e.dataTransfer.setDragImage(ghostContainer, 32, 32)
-
       setTimeout(() => {
         root.unmount()
         ghostContainer.remove()
@@ -205,13 +186,9 @@ function Editor({
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setHovering(false)
-
     const service = e.dataTransfer.getData("text/service") as ServiceType
-
     if (!(service in SERVICES)) return
-
     const rect = e.currentTarget.getBoundingClientRect()
-
     const frame = document
       .elementsFromPoint(e.clientX, e.clientY)
       .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
@@ -224,7 +201,6 @@ function Editor({
 
     if (!parentId) {
       x = e.clientX - rect.left - 32
-
       y = e.clientY - rect.top - 32
     }
 
@@ -308,29 +284,18 @@ function Editor({
               >
                 <EdgeLayer>
                   <EC2 style={at(40, 40)} />
-
                   <SQS style={at(340, 40)} />
-
                   <ELB style={at(640, 40)} />
-
                   <ASG id="main-asg" n={8} style={at(940, 360)}>
                     <EC2 />
                   </ASG>
-
                   <Aurora style={at(40, 360)} />
-
                   <Cloudfront style={at(340, 360)} />
-
                   <ELB style={at(640, 360)} />
-
                   <Fargate style={at(40, 620)} />
-
                   <Lambda style={at(340, 620)} />
-
                   <Route53 style={at(640, 620)} />
-
                   <S3 style={at(940, 40)} />
-
                   {placed.map(renderPlacedNode)}
                 </EdgeLayer>
               </div>
@@ -341,7 +306,7 @@ function Editor({
         <Separator className="h-1 bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
 
         <Panel defaultSize="15%" minSize="0%" maxSize="40%" className="bg-gray-50/5">
-          <section className="h-full w-full p-4">hello</section>
+          <section className="h-full w-full p-4">Graphs move here</section>
         </Panel>
       </Group>
     </div>

@@ -36,8 +36,7 @@ import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
 
 import { EditorProvider, useEditor } from "./EditorContext"
-import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
-import { GRID, CARD_W } from "./GraphPanel"
+import { DEFAULT_DOCKED, DockedGraphPanel, type Docked } from "./GraphPanel"
 import { serviceIcon } from "./icons"
 import Frame from "./Frame"
 
@@ -183,10 +182,33 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
   const { frameBodies } = useEditor()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
-  const [selected, _] = useState(false)
-  const dockedCards = useRef(new Map<string, HTMLDivElement | null>())
-  const moveDocked = useCallback((id: string, x: number, y: number) => {
-    setDocked((items) => items.map((item) => (item.id === id ? { ...item, x, y } : item)))
+
+  const updateDockedLayout = useCallback((changed: Docked[]) => {
+    setDocked((items) => {
+      let changedSomething = false
+
+      const next = items.map((item) => {
+        const update = changed.find((node) => node.id === item.id)
+
+        if (!update) return item
+
+        if (item.x === update.x && item.y === update.y && item.w === update.w && item.h === update.h) {
+          return item
+        }
+
+        changedSomething = true
+
+        return {
+          ...item,
+          x: update.x,
+          y: update.y,
+          w: update.w,
+          h: update.h,
+        }
+      })
+
+      return changedSomething ? next : items
+    })
   }, [])
 
   const onGraphDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -196,9 +218,21 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
     e.preventDefault()
     e.stopPropagation()
 
-    const payload = JSON.parse(raw) as { data: ChartDataItem[]; color?: string }
-    const rect = e.currentTarget.getBoundingClientRect()
-    const snap = (v: number) => Math.round(v / GRID) * GRID
+    const payload = JSON.parse(raw) as {
+      data: ChartDataItem[]
+      color?: string
+    }
+
+    const grid = e.currentTarget.querySelector(".grid-stack")
+    if (!grid) return
+
+    const rect = grid.getBoundingClientRect()
+
+    const columnWidth = rect.width / 24
+    const cellHeight = 48
+
+    const x = Math.max(0, Math.floor((e.clientX - rect.left - columnWidth * 3.5) / columnWidth))
+    const y = Math.max(0, Math.floor((e.clientY - rect.top - cellHeight * 4) / cellHeight))
 
     setDocked((items) => [
       ...items,
@@ -206,8 +240,10 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
         id: crypto.randomUUID(),
         data: payload.data,
         color: payload.color,
-        x: snap(e.clientX - rect.left - CARD_W / 2),
-        y: snap(e.clientY - rect.top - 40),
+        x,
+        y,
+        w: 7,
+        h: 8,
       },
     ])
   }
@@ -316,7 +352,7 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
           boxShadow: selectedId === node.id ? SELECT_RING : undefined,
         }}
       >
-        <Service id={node.id} style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined} />
+        <Service id={node.id} style={node.parentId === null ? at(node.x, node.y) : undefined} />
       </div>
     )
 
@@ -412,13 +448,12 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
         >
           <section className="h-full w-full relative overflow-hidden p-4">
             {docked.length === 0 && (
-              <div className="h-full w-full grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
+              <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
                 Drag a graph from a service to view the graphs here
               </div>
             )}
-            {docked.map((item) => (
-              <DockedGraphCard key={item.id} item={item} cards={dockedCards} onMove={moveDocked} />
-            ))}
+
+            <DockedGraphPanel items={docked} onChange={updateDockedLayout} />
           </section>
         </Panel>
       </Group>

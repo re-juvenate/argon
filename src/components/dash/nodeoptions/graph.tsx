@@ -1,4 +1,4 @@
-import { useState, useMemo, type CSSProperties } from "react"
+import { useState, useMemo, useRef, useEffect, type CSSProperties } from "react"
 import { AreaChart, Card } from "@tremor/react"
 
 export interface ChartDataItem {
@@ -34,6 +34,20 @@ function formatChange(payload: any, percentageChange: number, absoluteChange: nu
 
 export default function Graph({ chartdata = [], fill = false, color = "#693cc5" }: GraphProps) {
   const [hoverData, setHoverData] = useState<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isLowHeight, setIsLowHeight] = useState(false)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setIsLowHeight(entry.contentRect.height < 220)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const maxItem = useMemo(() => {
     if (!chartdata || chartdata.length === 0) return null
@@ -71,53 +85,58 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
   const displayDate = currentItem ? currentItem.time : "--"
 
   return (
-    <Card className={classNames("bg-[#0a0a0a] border-[#1f1f1f] text-white", fill ? "w-full h-full flex flex-col" : "w-full")}>
-      <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
-        Throughput {!payload && <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>}
-      </p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-white">{displayValue}</p>
-      <p className="mt-1 flex items-baseline justify-between">
-        <span className="text-sm text-neutral-400">On {displayDate}</span>
-        <span
-          className={classNames(
-            "rounded px-2 py-0.5 text-xs font-semibold",
-            !payload ? "text-neutral-400 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/40" : "text-red-400 bg-red-950/40",
-          )}
-        >
-          {payload ? formatChange(payload, percentageChange, absoluteChange) : "Max Throughput"}
-        </span>
-      </p>
+    <Card className={classNames("bg-[#0a0a0a] border-[#1f1f1f] text-white", fill ? "w-full h-full" : "w-full")}>
+      <div ref={containerRef} className={classNames("w-full h-full flex", isLowHeight ? "flex-row items-center gap-6" : "flex-col")}>
+        <div className={classNames(isLowHeight ? "shrink-0 w-1/3 min-w-[150px]" : "")}>
+          <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
+            Throughput {!payload && <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>}
+          </p>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-white">{displayValue}</p>
+          <p className="mt-1 flex items-baseline justify-between">
+            <span className="text-sm text-neutral-400">On {displayDate}</span>
+            <span
+              className={classNames(
+                "rounded px-2 py-0.5 text-xs font-semibold",
+                !payload ? "text-neutral-400 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/40" : "text-red-400 bg-red-950/40",
+              )}
+            >
+              {payload ? formatChange(payload, percentageChange, absoluteChange) : "Max Throughput"}
+            </span>
+          </p>
+        </div>
 
-      <AreaChart
-        className={classNames(
-          "mt-6 text-white",
-          fill ? "flex-1 min-h-0" : "h-80",
-          "[&_.recharts-area-curve]:stroke-(--graph-color)!",
-          "[&_linearGradient]:text-(--graph-color)!",
-          "[&_.recharts-dot]:stroke-(--graph-color)! [&_.recharts-dot]:fill-(--graph-color)!",
-        )}
-        style={{ "--graph-color": color } as CSSProperties}
-        data={chartdata}
-        index="time"
-        showLegend={false}
-        autoMinValue={true}
-        showYAxis={false}
-        showGradient={true}
-        startEndOnly={true}
-        categories={["Throughput"]}
-        colors={["blue"]}
-        customTooltip={(props) => {
-          if (props.active) {
-            setHoverData((prev: any) => {
-              if (prev?.label === props?.label) return prev
-              return props
-            })
-          } else {
-            setHoverData(null)
-          }
-          return null
-        }}
-      />
+        <AreaChart
+          className={classNames(
+            "text-white flex-1 min-w-0",
+            fill ? "h-full min-h-0" : "h-80",
+            isLowHeight ? "mt-0 pl-4" : "mt-6",
+            "[&_.recharts-area-curve]:stroke-(--graph-color)!",
+            "[&_linearGradient]:text-(--graph-color)!",
+            "[&_.recharts-dot]:stroke-(--graph-color)! [&_.recharts-dot]:fill-(--graph-color)!",
+          )}
+          style={{ "--graph-color": color } as CSSProperties}
+          data={chartdata}
+          index="time"
+          showLegend={false}
+          autoMinValue={true}
+          showYAxis={false}
+          showGradient={true}
+          startEndOnly={true}
+          categories={["Throughput"]}
+          colors={["blue"]}
+          customTooltip={(props) => {
+            if (props.active) {
+              setHoverData((prev: any) => {
+                if (prev?.label === props?.label) return prev
+                return props
+              })
+            } else {
+              setHoverData(null)
+            }
+            return null
+          }}
+        />
+      </div>
     </Card>
   )
 }

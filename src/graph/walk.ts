@@ -1,4 +1,4 @@
-import { ModelTier, ServiceType, type DropContext, type DropResult, type LatencyContext, type LatencyResult, type Milliseconds, type Ratio, type ThroughputContext, type ThroughputResult } from "../types/math"
+import { ModelTier, ServiceType, type DropContext, type DropResult, type LatencyContext, type LatencyResult, type Mbps, type Milliseconds, type Ratio, type ThroughputContext, type ThroughputResult } from "../types/math"
 import { evaluateDrop, evaluateLatency, evaluateThroughput, throughputCapacity, throughputModel } from "../math/simulate"
 import { model as asgThroughput, newASGState, type ASGState, type ASGTemplate } from "../math/asg/throughput"
 import { model as asgLatency } from "../math/asg/latency"
@@ -6,7 +6,7 @@ import { model as asgDrop } from "../math/asg/drop"
 import { hopLoss, hopMs, lambdaPoolShare, resolveRegion, type Placement } from "../math/region/throughput"
 import { bytes, combine, mbps, ms, ratio, seconds } from "../math/utilities"
 import { childrenOf, inputsOf, nodeById, outputsOf, topoOrder } from "./graph"
-import type { Graph, GraphNode } from "./types"
+import type { Graph, GraphEdge, GraphNode } from "./types"
 
 // Spec: .references/reduced-formulas-drop.md §5
 
@@ -44,6 +44,20 @@ export const regionOf = (graph: Graph, node: GraphNode): GraphNode | undefined =
 export const placementOf = (graph: Graph, node: GraphNode): Placement => {
   const region = regionOf(graph, node)
   return region ? { region: resolveRegion(region.config) } : {}
+}
+
+export const bytesAt = (graph: Graph, id: string): number | undefined => {
+  const node = nodeById(graph, id)
+  if (node?.service === ServiceType.Client) return Number(node.config.avgBytes) || graph.defaults.avgBytes
+  return inputsOf(graph, id)[0]?.avgBytes ?? graph.defaults.avgBytes
+}
+
+export const edgeFlow = (graph: Graph, e: GraphEdge, up: ThroughputResult | undefined): Mbps => {
+  const idx = outputsOf(graph, e.from).findIndex((o) => o.id === e.id)
+  const out = up?.outputsMbps[idx] ?? mbps(0)
+  const from = bytesAt(graph, e.from)
+  if (e.avgBytes === undefined || from === undefined || from <= 0) return out
+  return mbps((out.value * e.avgBytes) / from)
 }
 
 const effectiveConfig = (graph: Graph, node: GraphNode): Record<string, unknown> => {
@@ -165,16 +179,13 @@ export class Runtime {
       const b = edgeBytes ?? graph.defaults.avgBytes
       return b === undefined ? undefined : bytes(b)
     }
+    const flowOf = (e: GraphEdge, up: ThroughputResult | undefined): Mbps => edgeFlow(graph, e, up)
 
     const tp = new Map<string, ThroughputResult>()
     for (const node of order) {
       const b = this.bind(graph, node)
       const inputs = inputsOf(graph, node.id)
-      const inputsMbps = inputs.map((e) => {
-        const up = tp.get(e.from) ?? this.last.get(e.from)?.throughput
-        const idx = outputsOf(graph, e.from).findIndex((o) => o.id === e.id)
-        return up?.outputsMbps[idx] ?? mbps(0)
-      })
+      const inputsMbps = inputs.map((e) => flowOf(e, tp.get(e.from) ?? this.last.get(e.from)?.throughput))
       const avgBytes = sizeOf(inputs[0]?.avgBytes)
       tp.set(node.id, b.throughput({ inputsMbps, outputCount: outputsOf(graph, node.id).length, dt, tick, avgBytes }))
     }
@@ -184,7 +195,7 @@ export class Runtime {
       const b = this.bind(graph, node)
       const inputs = inputsOf(graph, node.id)
       const outputs = outputsOf(graph, node.id)
-      const inputsMbps = inputs.map((e) => tp.get(e.from)!.outputsMbps[outputsOf(graph, e.from).findIndex((o) => o.id === e.id)] ?? mbps(0))
+      const inputsMbps = inputs.map((e) => flowOf(e, tp.get(e.from)))
       const here = placementOf(graph, node)
       const downstream = outputs.map((e) => next.get(e.to) ?? this.last.get(e.to))
       const hops = outputs.map((e) => {

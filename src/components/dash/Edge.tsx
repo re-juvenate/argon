@@ -11,7 +11,7 @@ import {
 } from "react";
 import { getBezierPath, Position } from "@xyflow/react";
 import cn from "cnfast";
-import { graphStore, outputsOf, useGraph, type GraphEdge } from "#graph";
+import { edgeFlow, graphStore, useGraph, type GraphEdge } from "#graph";
 import { SocketType } from "../../types/nodes";
 import { useResults } from "./Simulation";
 import ContextMenu, { type MenuAt } from "./ContextMenu";
@@ -257,8 +257,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
           });
 
           const up = resultsRef.current.get(edge.from);
-          const idx = outputsOf(graphRef.current, edge.from).findIndex((o) => o.id === edge.id);
-          const flow = up?.throughput.outputsMbps[idx]?.value;
+          const flow = up ? edgeFlow(graphRef.current, edge, up.throughput).value : undefined;
           const drop = resultsRef.current.get(edge.to)?.drop.dropRate.value ?? 0;
 
           visible.setAttribute("d", path);

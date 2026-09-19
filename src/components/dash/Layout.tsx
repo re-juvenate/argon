@@ -20,6 +20,7 @@ import clsx from "clsx"
 
 import { ServiceType } from "../../types/math"
 import EdgeLayer from "./Edge"
+import Viewport from "./Viewport"
 import { type ChartDataItem } from "./nodeoptions/graph"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
@@ -37,6 +38,7 @@ import S3 from "./nodes/s3/s3"
 
 import { EditorProvider, useEditor } from "./EditorContext"
 import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
+import { GRID, CARD_W } from "./GraphPanel"
 
 const at = (left: number, top: number): CSSProperties => ({
   left,
@@ -79,7 +81,8 @@ const sidebarItem = clsx(
 
 const board = (hovering: boolean) =>
   clsx(
-    "relative w-full h-full overflow-hidden bg-background transition-shadow duration-150",
+    // No overflow clipping: the canvas is infinite, the viewport owns the clip.
+    "relative w-full h-full transition-shadow duration-150",
     hovering && "shadow-[inset_0_0_0_2px_var(--color-blueprimary)]",
   )
 
@@ -149,16 +152,18 @@ function Editor({
     e.preventDefault()
     e.stopPropagation()
 
-    const data: ChartDataItem[] = JSON.parse(raw)
+    const payload = JSON.parse(raw) as { data: ChartDataItem[]; color?: string }
     const rect = e.currentTarget.getBoundingClientRect()
+    const snap = (v: number) => Math.round(v / GRID) * GRID
 
     setDocked((items) => [
       ...items,
       {
         id: crypto.randomUUID(),
-        data,
-        x: e.clientX - rect.left - 170,
-        y: e.clientY - rect.top - 40,
+        data: payload.data,
+        color: payload.color,
+        x: snap(e.clientX - rect.left - CARD_W / 2),
+        y: snap(e.clientY - rect.top - 40),
       },
     ])
   }
@@ -299,45 +304,47 @@ function Editor({
               </section>
             </Panel>
 
-            <Separator className="w-1 bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
+            <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 
             <Panel defaultSize="85%">
-              <div
-                data-island-board
-                onPointerDownCapture={onSelectPointerDown}
-                onDragOver={(e) => {
-                  e.preventDefault()
+              <Viewport>
+                <div
+                  data-island-board
+                  onPointerDownCapture={onSelectPointerDown}
+                  onDragOver={(e) => {
+                    e.preventDefault()
 
-                  e.dataTransfer.dropEffect = "copy"
+                    e.dataTransfer.dropEffect = "copy"
 
-                  setHovering(true)
-                }}
-                onDragLeave={() => setHovering(false)}
-                onDrop={onDrop}
-                className={board(hovering)}
-              >
-                <EdgeLayer>
-                  <EC2 style={at(40, 40)} />
-                  <SQS style={at(340, 40)} />
-                  <ELB style={at(640, 40)} />
-                  <ASG n={8} style={at(940, 360)}>
-                    <EC2 />
-                  </ASG>
-                  <Aurora style={at(40, 360)} />
-                  <Cloudfront style={at(340, 360)} />
-                  <ELB style={at(640, 360)} />
-                  <Fargate style={at(40, 620)} />
-                  <Lambda style={at(340, 620)} />
-                  <Route53 style={at(640, 620)} />
-                  <S3 style={at(940, 40)} />
-                  {placed.map(renderPlacedNode)}
-                </EdgeLayer>
-              </div>
+                    setHovering(true)
+                  }}
+                  onDragLeave={() => setHovering(false)}
+                  onDrop={onDrop}
+                  className={board(hovering)}
+                >
+                  <EdgeLayer>
+                    <EC2 style={at(40, 40)} />
+                    <SQS style={at(340, 40)} />
+                    <ELB style={at(640, 40)} />
+                    <ASG n={8} style={at(940, 360)}>
+                      <EC2 />
+                    </ASG>
+                    <Aurora style={at(40, 360)} />
+                    <Cloudfront style={at(340, 360)} />
+                    <ELB style={at(640, 360)} />
+                    <Fargate style={at(40, 620)} />
+                    <Lambda style={at(340, 620)} />
+                    <Route53 style={at(640, 620)} />
+                    <S3 style={at(940, 40)} />
+                    {placed.map(renderPlacedNode)}
+                  </EdgeLayer>
+                </div>
+              </Viewport>
             </Panel>
           </Group>
         </Panel>
 
-        <Separator className="h-1 bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
+        <Separator className="h-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
 
         <Panel
           defaultSize="25%"

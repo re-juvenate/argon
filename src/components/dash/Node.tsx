@@ -9,6 +9,7 @@ import { graphStore } from "#graph"
 interface NodeProps {
   name: string
   color: string
+  icon?: string
   graph?: any[]
   cost?: number
   style?: CSSProperties
@@ -19,9 +20,15 @@ interface NodeProps {
   children?: ReactNode
 }
 
+interface GraphPayload {
+  data: unknown[]
+  color: string
+}
+
 export default function Node({
   name,
   color,
+  icon,
   graph,
   cost,
   style,
@@ -74,7 +81,10 @@ export default function Node({
         className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-4"
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        <span className="flex-1 text-left">{name}</span>
+        <div className="div flex items-center justify-between gap-2">
+          {icon && <img src={icon} alt="" className="size-6 shrink-0" draggable={false} />}
+          <span className="flex-1 text-left">{name}</span>
+        </div>
 
         {children && (
           <span className="text-sm flex items-center justify-center shrink-0">
@@ -88,7 +98,8 @@ export default function Node({
           <div
             draggable
             onDragStart={(e: DragEvent) => {
-              e.dataTransfer.setData("text/graph", JSON.stringify(graph))
+              const payload: GraphPayload = { data: graph, color }
+              e.dataTransfer.setData("text/graph", JSON.stringify(payload))
               e.dataTransfer.effectAllowed = "copy"
             }}
             className="cursor-grab active:cursor-grabbing"

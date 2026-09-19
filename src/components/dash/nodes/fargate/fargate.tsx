@@ -4,6 +4,8 @@ import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
 import Slider from "../../nodeoptions/slider";
 import { FARGATE_DEFAULTS, type FargateConfig } from "#math/ecs/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
 
 // Controls map onto the FargateConfig inputs of math/ecs/throughput:
 // vcpu, memGiB, tasks (sliders).
@@ -11,7 +13,13 @@ const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   const [, patch, nodeId] = useNodeConfig<FargateConfig>(ServiceType.ECS, FARGATE_DEFAULTS, id);
 
   return (
-    <Node id={nodeId} color="#d86613" name="Fargate" style={style}>
+    <Node
+      id={nodeId}
+      color={SERVICE_COLORS[ServiceType.ECS]}
+      name="Fargate"
+      icon={serviceIcon("fargate.svg")}
+      style={style}
+    >
       <Slider
         label="Task vCPU"
         min={0.25}

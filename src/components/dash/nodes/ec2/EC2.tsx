@@ -7,6 +7,8 @@ import type { Option } from "../../nodeoptions/dropdown";
 import { EC2_DEFAULTS, type EC2Config } from "#math/ec2/throughput";
 import { EC2InstanceType } from "./instancetype";
 import { EC2PlanType } from "./plantype";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
 
 // Controls map onto the EC2Config inputs of math/ec2/throughput: instanceType
 // and plan. Options come from the node's enums; their values are the AWS
@@ -33,7 +35,13 @@ const EC2 = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   }));
 
   return (
-    <Node id={nodeId} name="EC2" color="#e66d00" style={style}>
+    <Node
+      id={nodeId}
+      name="EC2"
+      color={SERVICE_COLORS[ServiceType.EC2]}
+      icon={serviceIcon("ec2.svg")}
+      style={style}
+    >
       <Dropdown label="Instance Type" options={instanceOptions} />
       <Dropdown label="Purchasing Plan" options={planOptions} />
     </Node>

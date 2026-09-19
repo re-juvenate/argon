@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from backend.agent.service import AgentService
+from agent.service import AgentService
 
 
 @lru_cache

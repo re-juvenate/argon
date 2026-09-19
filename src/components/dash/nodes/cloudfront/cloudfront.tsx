@@ -3,11 +3,21 @@ import Node from "../../Node";
 import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
 import { CLOUDFRONT_DEFAULTS, type CloudFrontConfig } from "#math/cloudfront/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
 
 const Cloudfront = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   const [, , nodeId] = useNodeConfig<CloudFrontConfig>(ServiceType.CloudFront, CLOUDFRONT_DEFAULTS, id);
 
-  return <Node id={nodeId} color="#693cc5" name="Cloudfront" style={style} />;
+  return (
+    <Node
+      id={nodeId}
+      color={SERVICE_COLORS[ServiceType.CloudFront]}
+      name="Cloudfront"
+      icon={serviceIcon("cloudfront.svg")}
+      style={style}
+    />
+  );
 };
 
 export default Cloudfront;

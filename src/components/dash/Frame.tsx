@@ -6,11 +6,12 @@ import cn from "cnfast";
 
 interface FrameProps {
   name: string;
+  icon?: string;
   style?: CSSProperties;
   children?: ReactNode;
 }
 
-const Frame = ({ name, style, children }: FrameProps) => {
+const Frame = ({ name, icon, style, children }: FrameProps) => {
   const [collapsed, setIsCollapsed] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const islandRef = useIsland<HTMLDivElement>({ handle: headerRef });
@@ -27,7 +28,10 @@ const Frame = ({ name, style, children }: FrameProps) => {
         className="text-sm py-1 px-3 text-[#999999] cursor-pointer select-none flex items-center justify-between gap-2"
         onClick={() => setIsCollapsed(!collapsed)}
       >
-        <span>{name}</span>
+        <span className="flex items-center gap-2">
+          {icon && <img src={icon} alt="" className="size-4 shrink-0" draggable={false} />}
+          {name}
+        </span>
         <span className="text-xs">{collapsed ? <CaretDownIcon /> : <CaretUpIcon />}</span>
       </div>
 

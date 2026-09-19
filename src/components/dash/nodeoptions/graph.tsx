@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, type CSSProperties } from "react"
 import { AreaChart, Card } from "@tremor/react"
 
 export interface ChartDataItem {
@@ -11,6 +11,7 @@ interface GraphProps {
   chartdata: ChartDataItem[]
   /** Stretch to fill the parent box instead of using the intrinsic size. */
   fill?: boolean
+  color?: string
 }
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -32,7 +33,7 @@ function formatChange(payload: any, percentageChange: number, absoluteChange: nu
   return `${formattedPercentage} (${formattedAbsolute})`
 }
 
-export default function Graph({ chartdata = [], fill = false }: GraphProps) {
+export default function Graph({ chartdata = [], fill = false, color = "#693cc5" }: GraphProps) {
   const [hoverData, setHoverData] = useState<any>(null)
 
   const maxItem = useMemo(() => {
@@ -103,11 +104,18 @@ export default function Graph({ chartdata = [], fill = false }: GraphProps) {
         </span>
       </p>
 
+      {/* Tremor only takes palette names, so the exact service color is applied
+          via a CSS variable + important arbitrary variants (stroke, gradient
+          currentColor, dots). */}
       <AreaChart
         className={classNames(
-          "mt-6 text-white fill-white",
+          "mt-6 text-white",
           fill ? "flex-1 min-h-0" : "h-80",
+          "[&_.recharts-area-curve]:!stroke-[var(--graph-color)]",
+          "[&_linearGradient]:!text-[var(--graph-color)]",
+          "[&_.recharts-dot]:!stroke-[var(--graph-color)] [&_.recharts-dot]:!fill-[var(--graph-color)]",
         )}
+        style={{ "--graph-color": color } as CSSProperties}
         data={chartdata}
         index="time"
         showLegend={false}

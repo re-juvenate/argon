@@ -6,6 +6,8 @@ import Dropdown from "../../nodeoptions/dropdown";
 import Slider from "../../nodeoptions/slider";
 import type { Option } from "../../nodeoptions/dropdown";
 import { LB_DEFAULTS, LBKind, type LBConfig } from "#math/lb/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
 
 // Controls map onto the LBConfig inputs of math/lb/throughput:
 // kind (dropdown) and reservedLcu (slider, 0 = no reservation).
@@ -18,7 +20,13 @@ const ELB = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   ];
 
   return (
-    <Node id={nodeId} color="#693cc5" name="ELB" style={style}>
+    <Node
+      id={nodeId}
+      color={SERVICE_COLORS[ServiceType.LB]}
+      name="ELB"
+      icon={serviceIcon("elb.svg")}
+      style={style}
+    >
       <Dropdown label="Balancer Kind" options={kindOptions} />
       <Slider
         label="Reserved LCU"

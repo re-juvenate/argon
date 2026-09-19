@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.agent.dependencies import get_agent_service
-from backend.agent.schemas import AgentCreate, AgentRead
-from backend.agent.service import AgentService
+from agent.dependencies import get_agent_service
+from agent.schemas import AgentCreate, AgentRead
+from agent.service import AgentService
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 

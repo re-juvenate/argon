@@ -4,6 +4,8 @@ import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
 import Slider from "../../nodeoptions/slider";
 import { LAMBDA_DEFAULTS, type LambdaConfig } from "#math/lambda/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
 
 // Controls map onto the LambdaConfig inputs of math/lambda/throughput:
 // memoryMb, reservedConcurrency, regionConcurrency (sliders). Region is not
@@ -12,7 +14,13 @@ const Lambda = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   const [, patch, nodeId] = useNodeConfig<LambdaConfig>(ServiceType.Lambda, LAMBDA_DEFAULTS, id);
 
   return (
-    <Node id={nodeId} color="#d86613" name="Lambda" style={style}>
+    <Node
+      id={nodeId}
+      color={SERVICE_COLORS[ServiceType.Lambda]}
+      name="Lambda"
+      icon={serviceIcon("lambda.svg")}
+      style={style}
+    >
       <Slider
         label="Memory (MB)"
         min={128}

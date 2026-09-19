@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import Frame from "../../Frame"
+import { serviceIcon } from "../../icons"
 
 gsap.registerPlugin(useGSAP)
 
@@ -99,7 +100,7 @@ const ASG = ({
 
   return (
     <div ref={containerRef}>
-      <Frame name="ASG" style={style}>
+      <Frame name="ASG" icon={serviceIcon("asg.svg")} style={style}>
         {instances.map((id) => (
           <div key={id} data-id={id} className="itemmmmy">
             {children}

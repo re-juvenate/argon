@@ -4,6 +4,9 @@ import Dropdown from "../../nodeoptions/dropdown";
 import type { Option } from "../../nodeoptions/dropdown";
 import { ARCHIVE_TIERS, S3_DEFAULTS, type S3Config } from "#math/s3/throughput";
 import { GlacierRetrievalSpeed, S3StorageTier } from "#math/s3/cost";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
+import { ServiceType } from "../../../../types/math";
 
 // Controls map onto the S3Config inputs of math/s3/throughput:
 // tier (dropdown) and retrieval (dropdown, archive tiers only).
@@ -14,6 +17,8 @@ const TIER_NAMES: Record<S3StorageTier, string> = {
   [S3StorageTier.GLACIER_INSTANT]: "Glacier Instant",
   [S3StorageTier.GLACIER_FLEXIBLE]: "Glacier Flexible",
   [S3StorageTier.DEEP_ARCHIVE]: "Deep Archive",
+  [S3StorageTier.INTELLIGENT_TIERING]: "Intelligent-Tiering",
+  [S3StorageTier.EXPRESS_ONE_ZONE]: "Express One-Zone",
 };
 
 const RETRIEVAL_NAMES: Record<GlacierRetrievalSpeed, string> = {
@@ -40,7 +45,12 @@ const S3 = ({ style }: { style?: CSSProperties }) => {
   }));
 
   return (
-    <Node color="#408723" name="S3" style={style}>
+    <Node
+      color={SERVICE_COLORS[ServiceType.S3]}
+      name="S3"
+      icon={serviceIcon("s3.svg")}
+      style={style}
+    >
       <Dropdown label="Storage Class" options={tierOptions} />
       {ARCHIVE_TIERS.has(tier) && <Dropdown label="Retrieval Speed" options={retrievalOptions} />}
     </Node>

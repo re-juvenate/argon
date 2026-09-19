@@ -21,6 +21,14 @@ export default function Dropdown({ label = "Options", options = [] }: BlenderDro
 
   const currentOption = selectedOption || options[0]
 
+  // Longest option name, kept in flow via the invisible sizer below so the
+  // node's w-fit sizing accounts for the open listbox (absolute elements
+  // contribute no width on their own).
+  const longestName = useMemo(
+    () => options.reduce((widest, option) => (option.name.length > widest.length ? option.name : widest), ""),
+    [options],
+  )
+
   const filteredOptions = useMemo(() => {
     return options.filter((option) => option.name.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [options, searchQuery])
@@ -97,6 +105,14 @@ export default function Dropdown({ label = "Options", options = [] }: BlenderDro
 
   return (
     <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
+      {/* Invisible width sizer: text matches the trigger/listbox styling. */}
+      <div
+        aria-hidden
+        className="h-0 overflow-hidden text-sm font-sans tracking-wide whitespace-nowrap pl-3 pr-9"
+      >
+        {longestName}
+      </div>
+
       <button
         type="button"
         aria-haspopup="listbox"

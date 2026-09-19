@@ -6,6 +6,9 @@ import type { Option } from "../../nodeoptions/dropdown";
 import { useRef, useState, type CSSProperties } from "react";
 import gsap from "gsap";
 import { QueueType, SQS_DEFAULTS, type SQSConfig } from "#math/sqs/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
+import { ServiceType } from "../../../../types/math";
 
 interface QueueProps {
   n: number;
@@ -83,7 +86,8 @@ const SQS = ({ style }: { style?: CSSProperties }) => {
   return (
     <Node
       style={style}
-      color="#c72161"
+      color={SERVICE_COLORS[ServiceType.SQS]}
+      icon={serviceIcon("sqs.svg")}
       name="SQS"
       visibleChildren={<Queue n={10} speed={2} state={true} />}
     >

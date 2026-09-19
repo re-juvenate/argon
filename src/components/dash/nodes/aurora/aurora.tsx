@@ -4,6 +4,9 @@ import Slider from "../../nodeoptions/slider";
 import Dropdown from "../../nodeoptions/dropdown";
 import type { Option } from "../../nodeoptions/dropdown";
 import { AURORA_CLASSES, AURORA_DEFAULTS, type AuroraConfig } from "#math/aurora/throughput";
+import { SERVICE_COLORS } from "../../colors";
+import { serviceIcon } from "../../icons";
+import { ServiceType } from "../../../../types/math";
 
 // Controls map 1:1 onto the AuroraConfig inputs of math/aurora/throughput:
 // instanceClass (dropdown), maxAcu (slider, > 0 overrides the class),
@@ -23,7 +26,7 @@ const Aurora = ({ style }: { style?: CSSProperties }) => {
   }));
 
   return (
-    <Node color="#3f4fd3" name="Aurora RDS" style={style}>
+    <Node color={SERVICE_COLORS[ServiceType.Aurora]} name="Aurora RDS" icon={serviceIcon("aurora.svg")} style={style}>
       <Dropdown label="Instance Class" options={classOptions} />
       <Slider
         label="Serverless Max ACU"

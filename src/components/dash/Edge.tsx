@@ -259,7 +259,10 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
   return (
     <EdgeCtx.Provider value={api}>
-      <svg ref={svgRef} className="pointer-events-none absolute inset-0 h-full w-full">
+      <svg
+        ref={svgRef}
+        className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      >
         {edges.map((edge) => (
           <g key={edge.id}>
             <path

@@ -69,7 +69,7 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         return null
       }
 
-      const settleDrop = (instance: Draggable) => {
+      const settleDrop = () => {
         if (finished) return
         finished = true
 
@@ -78,6 +78,10 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
 
         const rect = el.getBoundingClientRect()
         const boardRect = board.getBoundingClientRect()
+
+        // The board lives inside a pannable/zoomable viewport: rect deltas are
+        // screen pixels, but x/y are board-local. Divide by the board's scale.
+        const scale = board.offsetWidth > 0 ? boardRect.width / board.offsetWidth : 1
 
         const ownFrame = el.closest<HTMLElement>("[data-frame]")
 
@@ -101,15 +105,15 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
           }
 
           if (parentId === null) {
-            x = rect.left - boardRect.left
-            y = rect.top - boardRect.top
+            x = (rect.left - boardRect.left) / scale
+            y = (rect.top - boardRect.top) / scale
           }
         } else {
           parentId = hit?.frame.dataset.frame ?? null
 
           if (parentId === null || !hit) {
-            x = rect.left - boardRect.left
-            y = rect.top - boardRect.top
+            x = (rect.left - boardRect.left) / scale
+            y = (rect.top - boardRect.top) / scale
           } else {
             const bodyRect = hit.body.getBoundingClientRect()
 
@@ -125,22 +129,17 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         })
 
         moveNode(nodeId, parentId, x, y)
-
-        instance.applyBounds(board)
       }
 
       const [instance] = Draggable.create(el, {
         type: "x,y",
         trigger,
-        bounds: board,
         inertia: true,
-        edgeResistance: 1,
         zIndexBoost: false,
         allowEventDefault: true,
 
         onPress(this: Draggable) {
           finished = false
-          this.applyBounds(board)
         },
 
         onDragStart(this: Draggable) {
@@ -150,13 +149,13 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         onDragEnd(this: Draggable) {
           queueMicrotask(() => {
             if (!this.isThrowing) {
-              settleDrop(this)
+              settleDrop()
             }
           })
         },
 
         onThrowComplete(this: Draggable) {
-          settleDrop(this)
+          settleDrop()
         },
       })
 

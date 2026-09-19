@@ -9,10 +9,11 @@ interface FrameProps {
   name: string;
   icon?: string;
   style?: CSSProperties;
+  id?: string;
   children?: ReactNode;
 }
 
-const Frame = ({ name, icon, style, children }: FrameProps) => {
+const Frame = ({ name, icon, style, id, children }: FrameProps) => {
   const [collapsed, setIsCollapsed] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const islandRef = useIsland<HTMLDivElement>({ handle: headerRef });
@@ -22,6 +23,7 @@ const Frame = ({ name, icon, style, children }: FrameProps) => {
       ref={islandRef}
       style={style}
       data-frame
+      data-id={id}
       className="w-fit border-2 border-dashed border-border flex flex-col relative"
     >
       <div

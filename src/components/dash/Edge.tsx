@@ -195,10 +195,6 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
         const localX = (x: number) => (x - host.left) / scale;
         const localY = (y: number) => (y - host.top) / scale;
 
-        // The board lives in a pannable/zoomable viewport, so SVG units are
-        // scaled on screen. Divide stroke widths and dash patterns by the live
-        // scale to keep edges visually constant at any zoom level.
-        const scale = svg.clientWidth > 0 ? host.width / svg.clientWidth : 1
         const strokeWidth = (2 / scale).toFixed(3)
         const hitWidth = (14 / scale).toFixed(3)
         const dash = `${5 / scale} ${5 / scale}`

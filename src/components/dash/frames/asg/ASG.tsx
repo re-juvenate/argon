@@ -3,18 +3,24 @@ import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import Frame from "../../Frame"
 import { serviceIcon } from "../../icons"
+import { useNodeConfig } from "#graph"
+import { ServiceType } from "../../../../types/math"
+import { ASG_DEFAULTS, type ASGConfig } from "#math/asg/throughput"
 
 gsap.registerPlugin(useGSAP)
 
 const ASG = ({
   n,
   style,
+  id,
   children,
 }: {
   n: number
   style?: CSSProperties
+  id?: string
   children?: ReactNode
 }) => {
+  const [, , nodeId] = useNodeConfig<ASGConfig>(ServiceType.ASG, ASG_DEFAULTS, id)
   const containerRef = useRef<HTMLDivElement>(null)
   const [instances, setInstances] = useState<string[]>([])
   const prevN = useRef(n)
@@ -100,7 +106,7 @@ const ASG = ({
 
   return (
     <div ref={containerRef}>
-      <Frame name="ASG" icon={serviceIcon("asg.svg")} style={style}>
+      <Frame name="ASG" icon={serviceIcon("asg.svg")} style={style} id={nodeId}>
         {instances.map((id) => (
           <div key={id} data-id={id} className="itemmmmy">
             {children}

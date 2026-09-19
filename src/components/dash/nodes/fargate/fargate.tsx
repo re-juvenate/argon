@@ -1,15 +1,17 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import Node from "../../Node";
+import { useNodeConfig } from "#graph";
+import { ServiceType } from "../../../../types/math";
 import Slider from "../../nodeoptions/slider";
 import { FARGATE_DEFAULTS, type FargateConfig } from "#math/ecs/throughput";
 
 // Controls map onto the FargateConfig inputs of math/ecs/throughput:
 // vcpu, memGiB, tasks (sliders).
-const Fargate = ({ style }: { style?: CSSProperties }) => {
-  const [, setConfig] = useState<FargateConfig>(FARGATE_DEFAULTS);
+const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
+  const [, patch, nodeId] = useNodeConfig<FargateConfig>(ServiceType.ECS, FARGATE_DEFAULTS, id);
 
   return (
-    <Node color="#d86613" name="Fargate" style={style}>
+    <Node id={nodeId} color="#d86613" name="Fargate" style={style}>
       <Slider
         label="Task vCPU"
         min={0.25}
@@ -17,7 +19,7 @@ const Fargate = ({ style }: { style?: CSSProperties }) => {
         step={0.25}
         decimals={2}
         defaultValue={FARGATE_DEFAULTS.vcpu}
-        onChange={(vcpu) => setConfig((c) => ({ ...c, vcpu }))}
+        onChange={(vcpu) => patch({ vcpu })}
       />
       <Slider
         label="Task Memory (GiB)"
@@ -26,7 +28,7 @@ const Fargate = ({ style }: { style?: CSSProperties }) => {
         step={0.5}
         decimals={1}
         defaultValue={FARGATE_DEFAULTS.memGiB}
-        onChange={(memGiB) => setConfig((c) => ({ ...c, memGiB }))}
+        onChange={(memGiB) => patch({ memGiB })}
       />
       <Slider
         label="Tasks"
@@ -35,7 +37,7 @@ const Fargate = ({ style }: { style?: CSSProperties }) => {
         step={1}
         decimals={0}
         defaultValue={FARGATE_DEFAULTS.tasks}
-        onChange={(tasks) => setConfig((c) => ({ ...c, tasks }))}
+        onChange={(tasks) => patch({ tasks })}
       />
     </Node>
   );

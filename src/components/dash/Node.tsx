@@ -1,9 +1,10 @@
-import { useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react"
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
 import { Socket } from "./Edge"
 import { SparkAreaChart } from "@tremor/react"
+import { graphStore } from "#graph"
 
 interface NodeProps {
   name: string
@@ -37,6 +38,12 @@ export default function Node({
     flow: true,
     handle: headerRef,
   })
+
+  useEffect(() => {
+    if (id && typeof style?.left === "number" && typeof style?.top === "number") {
+      graphStore.setPosition(id, { x: style.left, y: style.top })
+    }
+  }, [id, style?.left, style?.top])
 
   return (
     <div

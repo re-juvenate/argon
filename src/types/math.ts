@@ -1,5 +1,3 @@
-// ---- units: same tagged-value shape as PropertyValue in ./nodes.ts ----
-
 export enum Unit {
   Mbps = "Mbps",
   Bytes = "Bytes",
@@ -16,10 +14,6 @@ export type Seconds = Quantity<Unit.Seconds>;
 export type Milliseconds = Quantity<Unit.Milliseconds>;
 export type Ratio = Quantity<Unit.Ratio>;
 
-// ---- model tier ----
-//  Measured  – documented/measured function applied to the node's own data
-//  Estimated – parameters derived from sockets, their throughput, or other attributes
-//  Assumed   – no accurate model; a stated assumption behind a knob
 export enum ModelTier {
   Measured = "measured",
   Estimated = "estimated",
@@ -39,15 +33,11 @@ export enum ServiceType {
   Aurora = "aurora",
 }
 
-
 export interface ThroughputContext {
-  // one entry per input socket; [] for source nodes
   inputsMbps: readonly Mbps[];
   outputCount: number;
   dt?: Seconds;
-  // only trust state advanced for the same tick
   tick?: number;
-  // request size on the incoming edge; nodes fall back to their own assumption
   avgBytes?: Bytes;
 }
 
@@ -55,11 +45,8 @@ export interface Stamped {
   tick?: number;
 }
 
-// Capacity that scales with a rate and a delay (ASG, ECS, S3 partitions, Aurora Serverless)
 export interface RampState extends Stamped {
-  // current capacity in the model's own unit (instances, tasks, rps, ACU)
   level: number;
-  // ordered capacity not yet in service
   pending: { readyAtS: number; amount: number }[];
   timeS: number;
   aboveS: number;
@@ -68,14 +55,11 @@ export interface RampState extends Stamped {
 }
 
 export interface ThroughputResult {
-  // Infinity when the service has no cap of its own
   capacityMbps: Mbps;
   offeredMbps: Mbps;
   servedMbps: Mbps;
   overflowMbps: Mbps;
-  // offered / capacity; 0 when capacity is Infinity
   utilization: number;
-  // served throughput distributed over the output sockets
   outputsMbps: readonly Mbps[];
   model: ModelTier;
   notes: readonly string[];
@@ -83,7 +67,6 @@ export interface ThroughputResult {
 
 export type Evaluate = (ctx: ThroughputContext) => ThroughputResult;
 
-// Every service module exports one of these. `defaults` holds what AWS asks for at setup;
 export interface ServiceModel<Config extends object, State = never> {
   readonly defaults: Required<Config>;
   capacity(config?: Config): Mbps;
@@ -96,8 +79,6 @@ export interface CreditState extends Stamped {
   availableMbps?: Mbps;
 }
 
-// ---- latency (p99) ----
-
 export interface LatencyContext extends ThroughputContext {
   downstreamMs?: readonly Milliseconds[];
 }
@@ -106,12 +87,9 @@ export interface LatencyResult {
   serviceMs: Milliseconds;
   waitMs: Milliseconds;
   p50Ms: Milliseconds;
-  // capped at the node's documented timeout
   p99Ms: Milliseconds;
-  // p99 before the cap: what the drop pass counts timeouts from
   tailMs: Milliseconds;
   utilization: number;
-  // c in M/M/c
   servers: number;
   model: ModelTier;
   notes: readonly string[];

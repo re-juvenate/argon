@@ -1,5 +1,7 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import Node from "../../Node";
+import { useNodeConfig } from "#graph";
+import { ServiceType } from "../../../../types/math";
 import Slider from "../../nodeoptions/slider";
 import Dropdown from "../../nodeoptions/dropdown";
 import type { Option } from "../../nodeoptions/dropdown";
@@ -8,9 +10,8 @@ import { AURORA_CLASSES, AURORA_DEFAULTS, type AuroraConfig } from "#math/aurora
 // Controls map 1:1 onto the AuroraConfig inputs of math/aurora/throughput:
 // instanceClass (dropdown), maxAcu (slider, > 0 overrides the class),
 // readers (slider). Selections here are the wiring point for the model.
-const Aurora = ({ style }: { style?: CSSProperties }) => {
-  // Holds the AuroraConfig the model will consume; read it once the math is wired.
-  const [, setConfig] = useState<AuroraConfig>(AURORA_DEFAULTS);
+const Aurora = ({ style, id }: { style?: CSSProperties; id?: string }) => {
+  const [, patch, nodeId] = useNodeConfig<AuroraConfig>(ServiceType.Aurora, AURORA_DEFAULTS, id);
 
   // Default class first so the Dropdown's initial display matches AURORA_DEFAULTS.
   const classNames = [
@@ -19,11 +20,11 @@ const Aurora = ({ style }: { style?: CSSProperties }) => {
   ];
   const classOptions: Option[] = classNames.map((name) => ({
     name,
-    onSelect: () => setConfig((c) => ({ ...c, instanceClass: name, maxAcu: 0 })),
+    onSelect: () => patch({ instanceClass: name, maxAcu: 0 }),
   }));
 
   return (
-    <Node color="#3f4fd3" name="Aurora RDS" style={style}>
+    <Node id={nodeId} color="#3f4fd3" name="Aurora RDS" style={style}>
       <Dropdown label="Instance Class" options={classOptions} />
       <Slider
         label="Serverless Max ACU"
@@ -32,7 +33,7 @@ const Aurora = ({ style }: { style?: CSSProperties }) => {
         step={1}
         decimals={0}
         defaultValue={AURORA_DEFAULTS.maxAcu}
-        onChange={(maxAcu) => setConfig((c) => ({ ...c, maxAcu }))}
+        onChange={(maxAcu) => patch({ maxAcu })}
       />
       <Slider
         label="Readers"
@@ -41,7 +42,7 @@ const Aurora = ({ style }: { style?: CSSProperties }) => {
         step={1}
         decimals={0}
         defaultValue={AURORA_DEFAULTS.readers}
-        onChange={(readers) => setConfig((c) => ({ ...c, readers }))}
+        onChange={(readers) => patch({ readers })}
       />
     </Node>
   );

@@ -1,5 +1,7 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import Node from "../../Node";
+import { useNodeConfig } from "#graph";
+import { ServiceType } from "../../../../types/math";
 import Dropdown from "../../nodeoptions/dropdown";
 import type { Option } from "../../nodeoptions/dropdown";
 import { ARCHIVE_TIERS, S3_DEFAULTS, type S3Config } from "#math/s3/throughput";
@@ -14,6 +16,8 @@ const TIER_NAMES: Record<S3StorageTier, string> = {
   [S3StorageTier.GLACIER_INSTANT]: "Glacier Instant",
   [S3StorageTier.GLACIER_FLEXIBLE]: "Glacier Flexible",
   [S3StorageTier.DEEP_ARCHIVE]: "Deep Archive",
+  [S3StorageTier.INTELLIGENT_TIERING]: "Intelligent-Tiering",
+  [S3StorageTier.EXPRESS_ONE_ZONE]: "Express One Zone",
 };
 
 const RETRIEVAL_NAMES: Record<GlacierRetrievalSpeed, string> = {
@@ -22,27 +26,23 @@ const RETRIEVAL_NAMES: Record<GlacierRetrievalSpeed, string> = {
   [GlacierRetrievalSpeed.BULK]: "Bulk",
 };
 
-const S3 = ({ style }: { style?: CSSProperties }) => {
-  const [tier, setTier] = useState(S3StorageTier.STANDARD);
-  const [, setConfig] = useState<S3Config>(S3_DEFAULTS);
+const S3 = ({ style, id }: { style?: CSSProperties; id?: string }) => {
+  const [config, patch, nodeId] = useNodeConfig<S3Config>(ServiceType.S3, S3_DEFAULTS, id);
 
   const tierOptions: Option[] = Object.values(S3StorageTier).map((t) => ({
     name: TIER_NAMES[t],
-    onSelect: () => {
-      setTier(t);
-      setConfig((c) => ({ ...c, tier: t }));
-    },
+    onSelect: () => patch({ tier: t }),
   }));
 
   const retrievalOptions: Option[] = Object.values(GlacierRetrievalSpeed).map((r) => ({
     name: RETRIEVAL_NAMES[r],
-    onSelect: () => setConfig((c) => ({ ...c, retrieval: r })),
+    onSelect: () => patch({ retrieval: r }),
   }));
 
   return (
-    <Node color="#408723" name="S3" style={style}>
+    <Node id={nodeId} color="#408723" name="S3" style={style}>
       <Dropdown label="Storage Class" options={tierOptions} />
-      {ARCHIVE_TIERS.has(tier) && <Dropdown label="Retrieval Speed" options={retrievalOptions} />}
+      {ARCHIVE_TIERS.has(config.tier ?? S3_DEFAULTS.tier) && <Dropdown label="Retrieval Speed" options={retrievalOptions} />}
     </Node>
   );
 };

@@ -48,6 +48,7 @@ const SELECT_RING = "0 0 0 2px var(--color-blueprimary)"
 
 interface NodeComponentProps {
   style?: CSSProperties
+  id?: string
 }
 
 const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
@@ -256,7 +257,10 @@ function Editor({
           boxShadow: selectedId === node.id ? SELECT_RING : undefined,
         }}
       >
-        <Service style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined} />
+        <Service
+          id={node.id}
+          style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined}
+        />
       </div>
     )
 
@@ -316,7 +320,7 @@ function Editor({
                   <EC2 style={at(40, 40)} />
                   <SQS style={at(340, 40)} />
                   <ELB style={at(640, 40)} />
-                  <ASG id="main-asg" n={8} style={at(940, 360)}>
+                  <ASG n={8} style={at(940, 360)}>
                     <EC2 />
                   </ASG>
                   <Aurora style={at(40, 360)} />

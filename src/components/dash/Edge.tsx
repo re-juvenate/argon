@@ -11,14 +11,12 @@ import {
 } from "react";
 import { getBezierPath, Position } from "@xyflow/react";
 import cn from "cnfast";
+import { graphStore, useGraph } from "#graph";
 
-interface EdgeRec {
-  id: string;
-  from: HTMLElement;
-  to: HTMLElement;
-}
+const nodeIdOf = (el: HTMLElement): string | undefined => el.closest<HTMLElement>("[data-id]")?.dataset.id;
 
 interface EdgeApi {
+  register: (el: HTMLElement) => void;
   unregister: (el: HTMLElement) => void;
   grab: (el: HTMLElement) => void;
   pending: HTMLElement | null;
@@ -48,6 +46,7 @@ export const useEdgeSocket = (): SocketApi => {
   const ref = useCallback((el: HTMLElement | null) => {
     if (el) {
       socketRef.current = el;
+      apiRef.current?.register(el);
       return;
     }
 
@@ -92,7 +91,7 @@ export const Socket = () => {
 const isEmptyRect = (rect: DOMRect) => rect.width === 0 && rect.height === 0;
 
 export default function EdgeLayer({ children }: { children: ReactNode }) {
-  const [edges, setEdges] = useState<EdgeRec[]>([]);
+  const { edges } = useGraph();
   const [pending, setPending] = useState<HTMLElement | null>(null);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -100,6 +99,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
   const hitPaths = useRef(new Map<string, SVGPathElement>());
   const pendingPath = useRef<SVGPathElement | null>(null);
   const pointer = useRef({ x: 0, y: 0 });
+  const sockets = useRef(new Map<string, HTMLElement>());
 
   const edgesRef = useRef(edges);
   const pendingRef = useRef(pending);
@@ -109,8 +109,13 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
   const api = useMemo<EdgeApi>(
     () => ({
+      register: (el) => {
+        const id = nodeIdOf(el);
+        if (id) sockets.current.set(id, el);
+      },
+
       unregister: (el) => {
-        setEdges((prev) => prev.filter((edge) => edge.from !== el && edge.to !== el));
+        for (const [id, socket] of sockets.current) if (socket === el) sockets.current.delete(id);
         setPending((current) => (current === el ? null : current));
       },
 
@@ -127,24 +132,9 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
           return;
         }
 
-        setEdges((prev) => {
-          const exists = prev.some(
-            (edge) =>
-              (edge.from === current && edge.to === el) ||
-              (edge.from === el && edge.to === current),
-          );
-
-          if (exists) return prev;
-
-          return [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              from: current,
-              to: el,
-            },
-          ];
-        });
+        const from = nodeIdOf(current);
+        const to = nodeIdOf(el);
+        if (from && to) graphStore.connect(from, to);
 
         setPending(null);
       },
@@ -194,10 +184,13 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
           const visible = visiblePaths.current.get(edge.id);
           const hit = hitPaths.current.get(edge.id);
 
-          if (!visible || !hit) continue;
+          const fromEl = sockets.current.get(edge.from);
+          const toEl = sockets.current.get(edge.to);
 
-          const from = edge.from.getBoundingClientRect();
-          const to = edge.to.getBoundingClientRect();
+          if (!visible || !hit || !fromEl || !toEl) continue;
+
+          const from = fromEl.getBoundingClientRect();
+          const to = toEl.getBoundingClientRect();
 
           if (isEmptyRect(from) || isEmptyRect(to)) {
             visible.setAttribute("d", "");
@@ -277,7 +270,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
               className="pointer-events-auto cursor-pointer"
               onPointerDown={(event) => {
                 event.stopPropagation();
-                setEdges((prev) => prev.filter((item) => item.id !== edge.id));
+                graphStore.removeEdge(edge.id);
               }}
             />
 

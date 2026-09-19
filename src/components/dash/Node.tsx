@@ -3,10 +3,12 @@ import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
 import { Socket } from "./Edge"
+import { SparkAreaChart } from "@tremor/react"
 
 interface NodeProps {
   name: string
   color: string
+  graph?: any[]
   style?: CSSProperties
   id?: string
   selected?: boolean
@@ -18,6 +20,7 @@ interface NodeProps {
 export default function Node({
   name,
   color,
+  graph,
   style,
   id,
   selected,
@@ -26,7 +29,6 @@ export default function Node({
   children,
 }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
-
   const headerRef = useRef<HTMLDivElement>(null)
 
   const islandRef = useIsland<HTMLDivElement>({
@@ -64,8 +66,19 @@ export default function Node({
       </div>
 
       <div className="flex flex-col px-2 flex-1 gap-2">
-        {visibleChildren}
+        {graph && (
+          <SparkAreaChart
+            data={graph}
+            index="date"
+            categories={["Semi"]}
+            colors={["emerald"]}
+            className="w-full flex-none
+              [&_.recharts-area-curve]:!stroke-[2]
+              [&_.recharts-area-curve]:!stroke-emerald-400"
+          />
+        )}
 
+        {visibleChildren}
         {children && isOpen && <div className="flex flex-col gap-2">{children}</div>}
       </div>
 

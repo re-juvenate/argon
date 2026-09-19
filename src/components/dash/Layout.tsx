@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ComponentType,
@@ -10,11 +11,18 @@ import {
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
 
+import gsap from "gsap"
+import { Draggable } from "gsap/Draggable"
+import { InertiaPlugin } from "gsap/InertiaPlugin"
+
 import { Group, Panel, Separator } from "react-resizable-panels"
 import clsx from "clsx"
 
 import { ServiceType } from "../../types/math"
 import EdgeLayer from "./Edge"
+import { type ChartDataItem } from "./nodeoptions/graph"
+
+gsap.registerPlugin(Draggable, InertiaPlugin)
 
 import EC2 from "./nodes/ec2/EC2"
 import SQS from "./nodes/sqs/SQS"
@@ -28,6 +36,7 @@ import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
 
 import { EditorProvider, useEditor } from "./EditorContext"
+import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
 
 const at = (left: number, top: number): CSSProperties => ({
   left,
@@ -35,7 +44,6 @@ const at = (left: number, top: number): CSSProperties => ({
 })
 
 const DELETION_KEYS = new Set(["Backspace", "Delete"])
-
 const SELECT_RING = "0 0 0 2px var(--color-blueprimary)"
 
 interface NodeComponentProps {
@@ -44,11 +52,8 @@ interface NodeComponentProps {
 
 const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.EC2]: EC2,
-
   [ServiceType.ECS]: Fargate,
-
   [ServiceType.ASG]: (props) => <ASG n={8} {...props} />,
-
   [ServiceType.LB]: ELB,
   [ServiceType.SQS]: SQS,
   [ServiceType.Lambda]: Lambda,
@@ -79,9 +84,7 @@ const board = (hovering: boolean) =>
 
 export default function Layout() {
   const [placed, setPlaced] = useState<Placed[]>([])
-
   const [selectedId, setSelectedId] = useState<string | null>(null)
-
   const [hovering, setHovering] = useState(false)
 
   const moveNode = useCallback((id: string, parentId: string | null, x: number, y: number) => {
@@ -131,6 +134,33 @@ function Editor({
   setHovering,
 }: EditorProps) {
   const { frameBodies } = useEditor()
+
+  const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
+  const dockedCards = useRef(new Map<string, HTMLDivElement | null>())
+  const moveDocked = useCallback((id: string, x: number, y: number) => {
+    setDocked((items) => items.map((item) => (item.id === id ? { ...item, x, y } : item)))
+  }, [])
+
+  const onGraphDrop = (e: DragEvent<HTMLDivElement>) => {
+    const raw = e.dataTransfer.getData("text/graph")
+    if (!raw) return
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    const data: ChartDataItem[] = JSON.parse(raw)
+    const rect = e.currentTarget.getBoundingClientRect()
+
+    setDocked((items) => [
+      ...items,
+      {
+        id: crypto.randomUUID(),
+        data,
+        x: e.clientX - rect.left - 170,
+        y: e.clientY - rect.top - 40,
+      },
+    ])
+  }
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return
@@ -305,8 +335,28 @@ function Editor({
 
         <Separator className="h-1 bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
 
-        <Panel defaultSize="15%" minSize="0%" maxSize="40%" className="bg-gray-50/5">
-          <section className="h-full w-full p-4">Graphs move here</section>
+        <Panel
+          defaultSize="25%"
+          minSize="0%"
+          maxSize="40%"
+          className="bg-gray-50/5"
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("text/graph")) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "copy"
+          }}
+          onDrop={onGraphDrop}
+        >
+          <section className="h-full w-full relative overflow-hidden p-4">
+            {docked.length === 0 && (
+              <div className="h-full w-full grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
+                Drag a graph from a service to view the graphs here
+              </div>
+            )}
+            {docked.map((item) => (
+              <DockedGraphCard key={item.id} item={item} cards={dockedCards} onMove={moveDocked} />
+            ))}
+          </section>
         </Panel>
       </Group>
     </div>

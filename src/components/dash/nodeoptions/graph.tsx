@@ -9,6 +9,8 @@ export interface ChartDataItem {
 
 interface GraphProps {
   chartdata: ChartDataItem[]
+  /** Stretch to fill the parent box instead of using the intrinsic size. */
+  fill?: boolean
 }
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -30,7 +32,7 @@ function formatChange(payload: any, percentageChange: number, absoluteChange: nu
   return `${formattedPercentage} (${formattedAbsolute})`
 }
 
-export default function Graph({ chartdata = [] }: GraphProps) {
+export default function Graph({ chartdata = [], fill = false }: GraphProps) {
   const [hoverData, setHoverData] = useState<any>(null)
 
   const maxItem = useMemo(() => {
@@ -72,7 +74,12 @@ export default function Graph({ chartdata = [] }: GraphProps) {
   const displayDate = currentItem ? currentItem.time : "--"
 
   return (
-    <Card className="w-full bg-[#0a0a0a] border-[#1f1f1f] text-white">
+    <Card
+      className={classNames(
+        "bg-[#0a0a0a] border-[#1f1f1f] text-white",
+        fill ? "w-full h-full flex flex-col" : "w-full",
+      )}
+    >
       <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
         Throughput{" "}
         {!payload && (
@@ -97,7 +104,10 @@ export default function Graph({ chartdata = [] }: GraphProps) {
       </p>
 
       <AreaChart
-        className="h-80 mt-6 text-white fill-white"
+        className={classNames(
+          "mt-6 text-white fill-white",
+          fill ? "flex-1 min-h-0" : "h-80",
+        )}
         data={chartdata}
         index="time"
         showLegend={false}

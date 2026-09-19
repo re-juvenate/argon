@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react"
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
@@ -78,16 +78,25 @@ export default function Node({
 
       <div className="flex flex-col px-2 flex-1 gap-2">
         {graph && (
-          <SparkAreaChart
-            data={graph}
-            index="date"
-            categories={["Semi"]}
-            colors={["emerald"]}
-            className="w-full flex-none
-              [&_.recharts-area-curve]:stroke-2!
-              [&_.recharts-area-curve]:stroke-emerald-400!
-              "
-          />
+          <div
+            draggable
+            onDragStart={(e: DragEvent) => {
+              e.dataTransfer.setData("text/graph", JSON.stringify(graph))
+              e.dataTransfer.effectAllowed = "copy"
+            }}
+            className="cursor-grab active:cursor-grabbing"
+          >
+            <SparkAreaChart
+              data={graph}
+              index="date"
+              categories={["Semi"]}
+              colors={["emerald"]}
+              className="w-full flex-none
+                [&_.recharts-area-curve]:stroke-2!
+                [&_.recharts-area-curve]:stroke-emerald-400!
+                "
+            />
+          </div>
         )}
 
         {visibleChildren}

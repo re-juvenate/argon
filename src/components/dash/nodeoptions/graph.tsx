@@ -1,31 +1,123 @@
-import { AreaChart } from "@tremor/react";
+import React, { useState, useMemo } from "react"
+import { AreaChart, Card } from "@tremor/react"
 
-interface ChartDataItem {
-  time: string;
-  Throughput: number;
-  "Time taken": number;
+export interface ChartDataItem {
+  time: string
+  Throughput: number
+  Time: number
 }
 
 interface GraphProps {
-  chartdata: ChartDataItem[];
+  chartdata: ChartDataItem[]
 }
 
-const Graph = ({ chartdata }: GraphProps) => {
-  const numberFormatter = (number: number) => {
-    return Intl.NumberFormat("en-US").format(number);
-  };
+function classNames(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ")
+}
+
+const numberFormatter = (num: number) => {
+  return Intl.NumberFormat("us").format(num).toString()
+}
+
+function formatChange(payload: any, percentageChange: number, absoluteChange: number) {
+  if (!payload || isNaN(percentageChange) || !isFinite(percentageChange)) {
+    return "--"
+  }
+
+  const formattedPercentage = `${percentageChange > 0 ? "+" : ""}${percentageChange.toFixed(1)}%`
+  const formattedAbsolute = `${absoluteChange >= 0 ? "+" : "-"}${numberFormatter(Math.abs(absoluteChange))}`
+
+  return `${formattedPercentage} (${formattedAbsolute})`
+}
+
+export default function Graph({ chartdata = [] }: GraphProps) {
+  const [hoverData, setHoverData] = useState<any>(null)
+
+  const maxItem = useMemo(() => {
+    if (!chartdata || chartdata.length === 0) return null
+    return chartdata.reduce(
+      (max, item) => (item.Throughput > max.Throughput ? item : max),
+      chartdata[0],
+    )
+  }, [chartdata])
+
+  const payload = hoverData?.payload?.[0]
+  const currentItem = payload ? payload.payload : maxItem
+
+  const value = currentItem ? currentItem.Throughput : undefined
+
+  const previousIndex = useMemo(() => {
+    if (!currentItem) return -1
+    return chartdata.findIndex((e) => e.time === currentItem.time)
+  }, [chartdata, currentItem])
+
+  const prevValue = useMemo(() => {
+    if (previousIndex > 0) {
+      return chartdata[previousIndex - 1].Throughput
+    }
+    return undefined
+  }, [chartdata, previousIndex])
+
+  const percentageChange = useMemo(() => {
+    if (value === undefined || prevValue === undefined || prevValue === 0) return 0
+    return ((value - prevValue) / prevValue) * 100
+  }, [value, prevValue])
+
+  const absoluteChange = useMemo(() => {
+    if (value === undefined || prevValue === undefined) return 0
+    return value - prevValue
+  }, [value, prevValue])
+
+  const displayValue = value !== undefined ? numberFormatter(value) : "--"
+  const displayDate = currentItem ? currentItem.time : "--"
 
   return (
-    <AreaChart
-      className="h-80 fill-white text-white"
-      data={chartdata}
-      index="time"
-      categories={["Throughput", "Time taken"]}
-      colors={["blue", "emerald"]}
-      valueFormatter={numberFormatter}
-      onValueChange={(v) => console.log(v)}
-    />
-  );
-};
+    <Card className="w-full bg-[#0a0a0a] border-[#1f1f1f] text-white">
+      <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
+        Throughput{" "}
+        {!payload && (
+          <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>
+        )}
+      </p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-white">{displayValue}</p>
+      <p className="mt-1 flex items-baseline justify-between">
+        <span className="text-sm text-neutral-400">On {displayDate}</span>
+        <span
+          className={classNames(
+            "rounded px-2 py-0.5 text-xs font-semibold",
+            !payload
+              ? "text-neutral-400 bg-neutral-900"
+              : percentageChange > 0
+                ? "text-emerald-400 bg-emerald-950/40"
+                : "text-red-400 bg-red-950/40",
+          )}
+        >
+          {payload ? formatChange(payload, percentageChange, absoluteChange) : "Max Throughput"}
+        </span>
+      </p>
 
-export default Graph;
+      <AreaChart
+        className="h-80 mt-6 text-white fill-white"
+        data={chartdata}
+        index="time"
+        showLegend={false}
+        showYAxis={false}
+        showGradient={true}
+        startEndOnly={true}
+        categories={["Throughput"]}
+        colors={["blue"]}
+        customTooltip={(props) => {
+          if (props.active) {
+            setHoverData((prev: any) => {
+              if (prev?.label === props?.label) return prev
+              return props
+            })
+          } else {
+            setHoverData(null)
+          }
+          return null
+        }}
+      />
+    </Card>
+  )
+}

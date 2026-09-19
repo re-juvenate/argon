@@ -38,6 +38,7 @@ import S3 from "./nodes/s3/s3"
 import { EditorProvider, useEditor } from "./EditorContext"
 import { DEFAULT_DOCKED, DockedGraphPanel, type Docked } from "./GraphPanel"
 import { serviceIcon } from "./icons"
+import ContextMenu from "./ContextMenu"
 import Frame from "./Frame"
 
 const at = (left: number, top: number): CSSProperties => ({
@@ -182,6 +183,7 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
   const { frameBodies } = useEditor()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   const updateDockedLayout = useCallback((changed: Docked[]) => {
     setDocked((items) => {
@@ -274,6 +276,7 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
     (e: ReactPointerEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
       setSelectedId(island?.dataset.islandId ?? null)
+      setContextMenu(null)
     },
     [setSelectedId],
   )
@@ -394,6 +397,14 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
                 <div
                   data-island-board
                   onPointerDownCapture={onSelectPointerDown}
+                  onContextMenu={(e) => {
+                    const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id], [data-id]")
+                    if (island) {
+                      e.preventDefault()
+                      setContextMenu({ x: e.clientX, y: e.clientY })
+                      setSelectedId(island.dataset.islandId || island.dataset.id || null)
+                    }
+                  }}
                   onDragEnter={(e) => {
                     e.preventDefault()
                     dragDepth.current += 1
@@ -428,6 +439,16 @@ function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHov
                   </EdgeLayer>
                 </div>
               </Viewport>
+
+              {contextMenu && (
+                <div
+                  className="fixed z-50 bg-[#161616] border border-[#202020] rounded-md shadow-lg shadow-black text-gray-300 min-w-40"
+                  style={{ top: contextMenu.y, left: contextMenu.x }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <ContextMenu />
+                </div>
+              )}
             </Panel>
           </Group>
         </Panel>

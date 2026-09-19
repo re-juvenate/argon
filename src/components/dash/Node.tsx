@@ -73,8 +73,8 @@ export default function Node({
             categories={["Semi"]}
             colors={["emerald"]}
             className="w-full flex-none
-              [&_.recharts-area-curve]:!stroke-[2]
-              [&_.recharts-area-curve]:!stroke-emerald-400"
+              [&_.recharts-area-curve]:stroke-2!
+              [&_.recharts-area-curve]:stroke-emerald-400!"
           />
         )}
 

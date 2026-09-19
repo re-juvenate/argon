@@ -15,11 +15,11 @@ import { graphStore, useGraph } from "#graph";
 import { SocketType } from "../../types/nodes";
 
 const nodeIdOf = (el: HTMLElement): string | undefined => el.closest<HTMLElement>("[data-id]")?.dataset.id;
-const kindOf = (el: HTMLElement): SocketType | undefined => el.dataset.socket as SocketType | undefined;
+const typeOf = (el: HTMLElement): SocketType | undefined => el.dataset.socket as SocketType | undefined;
 
 interface EdgeApi {
-  register: (el: HTMLElement, kind: SocketType) => void;
-  unregister: (el: HTMLElement, kind: SocketType) => void;
+  register: (el: HTMLElement, type: SocketType) => void;
+  unregister: (el: HTMLElement, type: SocketType) => void;
   grab: (el: HTMLElement) => void;
   pending: HTMLElement | null;
 }
@@ -38,7 +38,7 @@ const disconnected: SocketApi = {
   isPending: false,
 };
 
-export const useEdgeSocket = (kind: SocketType): SocketApi => {
+export const useEdgeSocket = (type: SocketType): SocketApi => {
   const api = useContext(EdgeCtx);
   const apiRef = useRef(api);
   const socketRef = useRef<HTMLElement | null>(null);
@@ -49,16 +49,16 @@ export const useEdgeSocket = (kind: SocketType): SocketApi => {
     (el: HTMLElement | null) => {
       if (el) {
         socketRef.current = el;
-        apiRef.current?.register(el, kind);
+        apiRef.current?.register(el, type);
         return;
       }
 
       if (socketRef.current) {
-        apiRef.current?.unregister(socketRef.current, kind);
+        apiRef.current?.unregister(socketRef.current, type);
         socketRef.current = null;
       }
     },
-    [kind],
+    [type],
   );
 
   const grab = useCallback((e: ReactPointerEvent) => {
@@ -78,15 +78,17 @@ export const useEdgeSocket = (kind: SocketType): SocketApi => {
   };
 };
 
-export const Socket = () => {
-  const socket = useEdgeSocket();
+export const Socket = ({ type }: { type: SocketType }) => {
+  const socket = useEdgeSocket(type);
 
   return (
     <span
       ref={socket.ref}
+      data-socket={type}
       onPointerDown={socket.grab}
       className={cn(
-        "absolute -right-[7px] top-1/2 z-10 h-3 w-3 -translate-y-1/2 cursor-crosshair rounded-full border border-border transition-colors",
+        "absolute top-1/2 z-10 h-3 w-3 -translate-y-1/2 cursor-crosshair rounded-full border border-border transition-colors",
+        type === SocketType.Input ? "-left-[7px]" : "-right-[7px]",
         socket.isPending ? "bg-blueprimary" : "bg-node hover:bg-[#999999]",
       )}
     />
@@ -104,7 +106,9 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
   const hitPaths = useRef(new Map<string, SVGPathElement>());
   const pendingPath = useRef<SVGPathElement | null>(null);
   const pointer = useRef({ x: 0, y: 0 });
-  const sockets = useRef(new Map<string, HTMLElement>());
+  const inputs = useRef(new Map<string, HTMLElement>());
+  const outputs = useRef(new Map<string, HTMLElement>());
+  const registry = (type: SocketType) => (type === SocketType.Input ? inputs.current : outputs.current);
 
   const edgesRef = useRef(edges);
   const pendingRef = useRef(pending);
@@ -114,13 +118,14 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
   const api = useMemo<EdgeApi>(
     () => ({
-      register: (el) => {
+      register: (el, type) => {
         const id = nodeIdOf(el);
-        if (id) sockets.current.set(id, el);
+        if (id) registry(type).set(id, el);
       },
 
-      unregister: (el) => {
-        for (const [id, socket] of sockets.current) if (socket === el) sockets.current.delete(id);
+      unregister: (el, type) => {
+        const map = registry(type);
+        for (const [id, socket] of map) if (socket === el) map.delete(id);
         setPending((current) => (current === el ? null : current));
       },
 
@@ -132,13 +137,14 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (current === el) {
+        if (current === el || typeOf(current) === typeOf(el)) {
           setPending(null);
           return;
         }
 
-        const from = nodeIdOf(current);
-        const to = nodeIdOf(el);
+        const [output, input] = typeOf(current) === SocketType.Output ? [current, el] : [el, current];
+        const from = nodeIdOf(output);
+        const to = nodeIdOf(input);
         if (from && to) graphStore.connect(from, to);
 
         setPending(null);
@@ -193,8 +199,8 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
           const visible = visiblePaths.current.get(edge.id);
           const hit = hitPaths.current.get(edge.id);
 
-          const fromEl = sockets.current.get(edge.from);
-          const toEl = sockets.current.get(edge.to);
+          const fromEl = outputs.current.get(edge.from);
+          const toEl = inputs.current.get(edge.to);
 
           if (!visible || !hit || !fromEl || !toEl) continue;
 
@@ -207,19 +213,13 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
             continue;
           }
 
-          const sx = localX(from.left + from.width / 2);
-          const sy = localY(from.top + from.height / 2);
-          const tx = localX(to.left + to.width / 2);
-          const ty = localY(to.top + to.height / 2);
-          const forward = tx >= sx;
-
           const [path] = getBezierPath({
-            sourceX: sx,
-            sourceY: sy,
-            targetX: tx,
-            targetY: ty,
-            sourcePosition: forward ? Position.Right : Position.Left,
-            targetPosition: forward ? Position.Left : Position.Right,
+            sourceX: localX(from.left + from.width / 2),
+            sourceY: localY(from.top + from.height / 2),
+            targetX: localX(to.left + to.width / 2),
+            targetY: localY(to.top + to.height / 2),
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
           });
 
           visible.setAttribute("d", path);
@@ -227,24 +227,22 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
         }
 
         const dashed = pendingPath.current;
-        const from = pendingRef.current;
+        const held = pendingRef.current;
 
-        if (dashed && from) {
-          const rect = from.getBoundingClientRect();
-
-          const sx = localX(rect.left + rect.width / 2);
-          const sy = localY(rect.top + rect.height / 2);
-          const tx = localX(pointer.current.x);
-          const ty = localY(pointer.current.y);
-          const forward = tx >= sx;
+        if (dashed && held) {
+          const rect = held.getBoundingClientRect();
+          const socket = { x: localX(rect.left + rect.width / 2), y: localY(rect.top + rect.height / 2) };
+          const cursor = { x: localX(pointer.current.x), y: localY(pointer.current.y) };
+          const fromOutput = typeOf(held) === SocketType.Output;
+          const [source, target] = fromOutput ? [socket, cursor] : [cursor, socket];
 
           const [path] = getBezierPath({
-            sourceX: sx,
-            sourceY: sy,
-            targetX: tx,
-            targetY: ty,
-            sourcePosition: forward ? Position.Right : Position.Left,
-            targetPosition: forward ? Position.Left : Position.Right,
+            sourceX: source.x,
+            sourceY: source.y,
+            targetX: target.x,
+            targetY: target.y,
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
           });
 
           dashed.setAttribute("d", path);

@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
 import { useIsland } from "./Island";
 import { Socket } from "./Edge";
+import { SocketType } from "../../types/nodes";
 import cn from "cnfast";
 
 interface FrameProps {
@@ -41,7 +42,8 @@ const Frame = ({ name, icon, style, children }: FrameProps) => {
       >
         {children}
       </div>
-      <Socket />
+      <Socket type={SocketType.Input} />
+      <Socket type={SocketType.Output} />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { useIsland } from "./Island"
 import { Socket } from "./Edge"
 import { SparkAreaChart } from "@tremor/react"
 import { graphStore } from "#graph"
+import { SocketType } from "../../types/nodes"
 
 interface NodeProps {
   name: string
@@ -121,7 +122,8 @@ export default function Node({
         {children && isOpen && <div className="flex flex-col gap-2">{children}</div>}
       </div>
 
-      <Socket />
+      <Socket type={SocketType.Input} />
+      <Socket type={SocketType.Output} />
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { DropKind, ModelTier, type DropModel } from "../../types/math";
 import { cause, note, num, parseCsv, pipe, ratio, resolve, retried, SDK_RETRIES, sizeOf, startDrop, toMbps } from "../utilities";
 import { S3StorageTier } from "./cost";
 import { ARCHIVE_TIERS, capacityRps, S3_ASSUMED, S3_DEFAULTS, type S3Config, type S3State } from "./throughput";
-import { readFileSync } from "node:fs"; const tiersCsv = readFileSync(new URL("./tiers.csv", import.meta.url), "utf8");
+import tiersCsv from "./tiers.csv?raw";
 
 // 503 SlowDown over the per-prefix quota (SDK-retried) + availability design from tiers.csv.
 // Archive tiers: capacity 0 → rawDrop 1.

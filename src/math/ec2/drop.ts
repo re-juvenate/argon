@@ -1,7 +1,7 @@
 import { DropKind, ModelTier, type CreditState, type DropModel } from "../../types/math";
 import { cause, current, mbps, note, num, parseCsv, pipe, ratio, resolve, sizeOf, startDrop } from "../utilities";
 import { availableMbps } from "./latency";
-import { readFileSync } from "node:fs"; const planCsv = readFileSync(new URL("./plantype.csv", import.meta.url), "utf8");
+import planCsv from "./plantype.csv?raw";
 import { cpuCapacityMbps, EC2_ASSUMED, EC2_DEFAULTS, resolveSpec, type EC2Config } from "./throughput";
 
 // NIC overflow (ENA "queue then drop") plus Spot reclaim. PPS / conntrack allowances unpublished.

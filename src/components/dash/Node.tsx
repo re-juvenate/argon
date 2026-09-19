@@ -119,7 +119,18 @@ export default function Node({
         )}
 
         {visibleChildren}
-        {children && isOpen && <div className="flex flex-col gap-2">{children}</div>}
+        {/* Collapsed children stay mounted and invisible: their width keeps
+            reserving space, so expanding never changes the node's width. */}
+        {children && (
+          <div
+            className={clsx(
+              "flex flex-col gap-2",
+              !isOpen && "invisible h-0 overflow-hidden",
+            )}
+          >
+            {children}
+          </div>
+        )}
       </div>
 
       <Socket type={SocketType.Input} />

@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, type RefObject } from "react"
-import { useGSAP } from "@gsap/react"
-import gsap from "gsap"
-import { Draggable } from "gsap/Draggable"
-import { InertiaPlugin } from "gsap/InertiaPlugin"
+import { useEffect, useMemo, useRef } from "react"
+import { GridStack, useGridStack } from "gridstack/dist/react"
+import type { GridStackOptions } from "gridstack"
+import "gridstack/dist/gridstack.css"
 
 import Graph, { type ChartDataItem } from "./nodeoptions/graph"
 import type { NodeResult } from "#graph"
 import { Metric, METRICS } from "./metrics"
 import { useNodeResult } from "./Simulation"
-
-gsap.registerPlugin(Draggable, InertiaPlugin)
 
 export interface Docked {
   id: string
@@ -18,117 +15,165 @@ export interface Docked {
   name: string
   x: number
   y: number
+  w: number
+  h: number
   color?: string
 }
 
-/** Snap grid in px; card sizes are multiples of it so cards tile edge-to-edge. */
-export const GRID = 48
-export const CARD_W = 336 // 7 * GRID
-const CARD_H = 384 // 8 * GRID
+export const CARD_W = 7
+export const CARD_H = 8
+export const COLUMNS = 24
 
 export const DEFAULT_DOCKED: Docked[] = []
 
 const chartData = (history: readonly NodeResult[], metric: Metric): ChartDataItem[] =>
   history.map((r, i) => ({ time: String(i), Throughput: METRICS[metric].pick(r), Time: i }))
 
-interface DockedGraphCardProps {
-  item: Docked
-  cards: RefObject<Map<string, HTMLDivElement | null>>
-  onMove: (id: string, x: number, y: number) => void
+interface GraphWidgetProps {
+  nodeId: string
+  metric: Metric
+  name: string
+  color?: string
 }
 
-/**
- * A docked graph card. Drags snap to the panel grid with a springy
- * Back.easeOut settle (inspired by the GSAP "snap to grid based on another
- * object" demo), so cards always land aligned and can tile into a dashboard.
- */
-export function DockedGraphCard({ item, cards, onMove }: DockedGraphCardProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { history } = useNodeResult(item.nodeId)
-  const spec = METRICS[item.metric]
-  const data = useMemo(() => chartData(history, item.metric), [history, item.metric])
-
-  useEffect(
-    () => () => {
-      cards.current.delete(item.id)
-    },
-    [cards, item.id],
+function GraphWidget({ nodeId, metric, name, color }: GraphWidgetProps) {
+  const { history } = useNodeResult(nodeId)
+  const spec = METRICS[metric]
+  const data = useMemo(() => chartData(history, metric), [history, metric])
+  return (
+    <div className="h-full w-full overflow-hidden rounded-lg border border-[#1f1f1f] shadow-lg shadow-black/40">
+      <Graph chartdata={data} fill color={color} title={`${name} · ${spec.label}`} unit={spec.unit} />
+    </div>
   )
+}
 
-  useGSAP(() => {
-    const el = ref.current
-    if (!el) return
+interface GridEventsProps {
+  onChange: (items: Docked[]) => void
+}
 
-    gsap.set(el, { x: item.x, y: item.y })
+function GridEvents({ onChange }: GridEventsProps) {
+  const { grid } = useGridStack()
+  const onChangeRef = useRef(onChange)
 
-    const grid = document.createElement("div")
-    grid.setAttribute("data-dock-grid", "")
-    Object.assign(grid.style, {
-      position: "absolute",
-      inset: `-${GRID}px`,
-      pointerEvents: "none",
-      opacity: "0",
-      backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.28) 1px, transparent 1px)`,
-      backgroundSize: `${GRID}px ${GRID}px`,
-      backgroundPosition: `${GRID - 1}px ${GRID - 1}px`,
-    })
-    el.parentElement?.prepend(grid)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
-    const snap = (value: number) => Math.round(value / GRID) * GRID
+  useEffect(() => {
+    if (!grid) return
 
-    const [instance] = Draggable.create(el, {
-      type: "x,y",
-      bounds: el.parentElement ?? undefined,
-      inertia: false,
-      zIndexBoost: true,
+    const updateBounds = () => {
+      const height = grid.el.clientHeight
+      if (height <= 0) return
 
-      onPress(this: Draggable) {
-        gsap.to(grid, { opacity: 1, duration: 0.15 })
-      },
+      // Find the maximum logical row any widget reaches
+      const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
 
-      // Live rubber-band to the grid while dragging, then a springy settle.
-      onDrag(this: Draggable) {
-        gsap.to(el, {
-          x: snap(this.x),
-          y: snap(this.y),
-          duration: 0.5,
-          ease: "back.out(2)",
-          overwrite: "auto",
-        })
-      },
+      // Dynamically size the cells so they perfectly fill the visible height
+      const newCellHeight = Math.floor(height / maxRows)
+      grid.cellHeight(newCellHeight)
+    }
 
-      onDragEnd(this: Draggable) {
-        gsap.to(grid, { opacity: 0, duration: 0.25 })
-        onMove(item.id, snap(this.x), snap(this.y))
-      },
+    updateBounds()
 
-      onThrowComplete() {
-        onMove(item.id, snap(Number(gsap.getProperty(el, "x"))), snap(Number(gsap.getProperty(el, "y"))))
-      },
-    })
+    const observer = new ResizeObserver(updateBounds)
+    observer.observe(grid.el)
+
+    grid.on("added removed change", updateBounds)
 
     return () => {
-      instance.kill()
-      gsap.killTweensOf(el)
-      grid.remove()
+      observer.disconnect()
+      grid.off("added removed change")
     }
-  }, [])
+  }, [grid])
+
+  useEffect(() => {
+    if (!grid) return
+
+    const handleChange = (
+      _event: Event,
+      nodes: Array<{
+        id?: string
+        x?: number
+        y?: number
+        w?: number
+        h?: number
+      }>,
+    ) => {
+      const changed = nodes
+        .filter((node): node is typeof node & { id: string } => Boolean(node.id))
+        .map((node) => ({
+          id: node.id,
+          x: node.x ?? 0,
+          y: node.y ?? 0,
+          w: node.w ?? 1,
+          h: node.h ?? 1,
+        }))
+
+      if (changed.length) {
+        onChangeRef.current(changed as Docked[])
+      }
+    }
+
+    grid.on("change", handleChange)
+
+    return () => {
+      grid.off("change")
+    }
+  }, [grid])
+
+  return null
+}
+
+interface DockedGraphPanelProps {
+  items: Docked[]
+  onChange: (items: Docked[]) => void
+}
+
+export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  const options = useMemo<GridStackOptions>(
+    () => ({
+      column: COLUMNS,
+      cellHeight: 48,
+      margin: 0,
+      float: true,
+      animate: true,
+      draggable: {
+        appendTo: "body",
+      },
+      resizable: {
+        handles: "all",
+      },
+      children: items.map((item) => ({
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        component: "GraphWidget",
+        props: {
+          nodeId: item.nodeId,
+          metric: item.metric,
+          name: item.name,
+          color: item.color,
+        },
+      })),
+    }),
+    [items],
+  )
 
   return (
-    <div
-      ref={(el) => {
-        ref.current = el
-        cards.current.set(item.id, el)
-      }}
-      style={{
-        width: CARD_W,
-        height: CARD_H,
-        resize: "both",
-        overflow: "hidden",
-      }}
-      className="absolute top-0 left-0 cursor-grab active:cursor-grabbing rounded-lg border border-[#1f1f1f] shadow-lg shadow-black/40"
-    >
-      <Graph chartdata={data} fill color={item.color} title={`${item.name} · ${spec.label}`} unit={spec.unit} />
+    <div ref={gridRef} className="grid-stack h-full w-full">
+      <GridStack
+        options={options}
+        components={{
+          GraphWidget: (props: Record<string, unknown>) => <GraphWidget {...(props as unknown as GraphWidgetProps)} />,
+        }}
+      >
+        <GridEvents onChange={onChange} />
+      </GridStack>
     </div>
   )
 }

@@ -10,7 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react"
 import { createPortal } from "react-dom"
-import { createRoot } from "react-dom/client"
 
 import gsap from "gsap"
 import { Draggable } from "gsap/Draggable"
@@ -21,6 +20,7 @@ import clsx from "clsx"
 
 import { ServiceType } from "../../types/math"
 import EdgeLayer from "./Edge"
+import { InstanceCtx } from "./Node"
 import Viewport from "./Viewport"
 import { GRAPH_MIME, Metric, METRICS, type GraphPayload } from "./metrics"
 import ContextMenu, { type MenuAt, type MenuItem } from "./ContextMenu"
@@ -42,8 +42,7 @@ import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
 
 import { EditorProvider, useEditor } from "./EditorContext"
-import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
-import { GRID, CARD_W } from "./GraphPanel"
+import { CARD_H, CARD_W, COLUMNS, DEFAULT_DOCKED, DockedGraphPanel, type Docked } from "./GraphPanel"
 import { serviceIcon } from "./icons"
 import { SERVICE_COLORS } from "./colors"
 import { graphStore, useGraph } from "#graph"
@@ -100,6 +99,19 @@ const PALETTE = Object.values(ServiceType).map((service) => {
 
 const isService = (value: string): value is ServiceType => (Object.values(ServiceType) as string[]).includes(value)
 
+const ghostCache = new Map<ServiceType, HTMLImageElement>()
+
+const ghostImage = (service: ServiceType): HTMLImageElement => {
+  const existing = ghostCache.get(service)
+  if (existing) return existing
+  const img = new Image()
+  img.src = `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="48"><rect width="96" height="48" rx="8" fill="${SERVICE_COLORS[service]}" stroke="#151515"/><text x="48" y="29" fill="#fff" font-family="monospace" font-size="13" text-anchor="middle">${service}</text></svg>`,
+  )}`
+  ghostCache.set(service, img)
+  return img
+}
+
 const sidebarItem = clsx(
   "flex items-center gap-2.5 px-3 py-2 bg-neutral-800 text-white rounded text-sm font-mono select-none",
   "cursor-grab active:cursor-grabbing hover:bg-neutral-700 transition-colors",
@@ -147,18 +159,28 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
   const [menu, setMenu] = useState<{ at: MenuAt; node: GraphNode } | null>(null)
-  const dockedCards = useRef(new Map<string, HTMLDivElement | null>())
-  const moveDocked = useCallback((id: string, x: number, y: number) => {
-    setDocked((items) => items.map((item) => (item.id === id ? { ...item, x, y } : item)))
+  const updateDockedLayout = useCallback((changed: Docked[]) => {
+    setDocked((items) => {
+      let moved = false
+      const next = items.map((item) => {
+        const update = changed.find((node) => node.id === item.id)
+        if (!update || (item.x === update.x && item.y === update.y && item.w === update.w && item.h === update.h)) return item
+        moved = true
+        return { ...item, x: update.x, y: update.y, w: update.w, h: update.h }
+      })
+      return moved ? next : items
+    })
   }, [])
 
-  const dock = useCallback((payload: GraphPayload, x = GRID, y = GRID) => {
-    const snap = (v: number) => Math.round(v / GRID) * GRID
+  const dock = useCallback((payload: GraphPayload, x = 0, y = 0) => {
     setDocked((items) => {
       const taken = new Set(items.map((i) => `${i.x},${i.y}`))
-      let px = snap(x)
-      while (taken.has(`${px},${snap(y)}`)) px += CARD_W
-      return [...items, { id: crypto.randomUUID(), nodeId: payload.nodeId, metric: payload.metric, name: payload.name, color: payload.color, x: px, y: snap(y) }]
+      let px = Math.max(0, Math.min(COLUMNS - CARD_W, x))
+      while (taken.has(`${px},${y}`)) px = (px + CARD_W) % (COLUMNS - CARD_W + 1)
+      return [
+        ...items,
+        { id: crypto.randomUUID(), nodeId: payload.nodeId, metric: payload.metric, name: payload.name, color: payload.color, x: px, y, w: CARD_W, h: CARD_H },
+      ]
     })
   }, [])
 
@@ -170,8 +192,14 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
     e.stopPropagation()
 
     const payload = JSON.parse(raw) as GraphPayload
-    const rect = e.currentTarget.getBoundingClientRect()
-    dock(payload, e.clientX - rect.left - CARD_W / 2, e.clientY - rect.top - 40)
+    const grid = e.currentTarget.querySelector(".grid-stack")
+    if (!grid) return dock(payload)
+
+    const rect = grid.getBoundingClientRect()
+    const columnWidth = rect.width / COLUMNS
+    const x = Math.max(0, Math.floor((e.clientX - rect.left - (columnWidth * CARD_W) / 2) / columnWidth))
+    const y = Math.max(0, Math.floor((e.clientY - rect.top - (48 * CARD_H) / 2) / 48))
+    dock(payload, x, y)
   }
 
   const deleteSelected = useCallback(() => {
@@ -216,7 +244,7 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
       {
         label: "Detailed graph",
         icon: <SquaresFourIcon />,
-        onSelect: () => (Object.keys(METRICS) as Metric[]).forEach((metric, i) => dock(payload(metric), GRID + i * CARD_W)),
+        onSelect: () => (Object.keys(METRICS) as Metric[]).forEach((metric, i) => dock(payload(metric), (i * CARD_W) % COLUMNS, Math.floor((i * CARD_W) / COLUMNS) * CARD_H)),
       },
       { label: "Delete", icon: <TrashIcon />, danger: true, onSelect: () => graphStore.removeNode(node.id) },
     ]
@@ -230,33 +258,17 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
     [setSelectedId],
   )
 
+  const dragDepth = useRef(0)
+
+  useEffect(() => {
+    PALETTE.forEach(({ service }) => ghostImage(service))
+  }, [])
+
   const handleDragStart = (e: DragEvent<HTMLDivElement>, service: ServiceType) => {
     e.dataTransfer.setData("text/service", service)
     e.dataTransfer.effectAllowed = "copy"
-    const ghostContainer = document.createElement("div")
-    ghostContainer.style.position = "absolute"
-    ghostContainer.style.top = "-9999px"
-    ghostContainer.style.left = "-9999px"
-    ghostContainer.style.pointerEvents = "none"
-    document.body.appendChild(ghostContainer)
-    const icon = PALETTE.find((item) => item.service === service)?.icon
-    const root = createRoot(ghostContainer)
-    root.render(
-      <div
-        style={{ backgroundColor: SERVICE_COLORS[service] }}
-        className="flex items-center gap-2 px-4 py-1 text-xl text-white border border-border"
-      >
-        {icon && <img src={icon} alt="" className="size-6" />}
-        {service}
-      </div>,
-    )
-    setTimeout(() => {
-      e.dataTransfer.setDragImage(ghostContainer, 32, 32)
-      setTimeout(() => {
-        root.unmount()
-        ghostContainer.remove()
-      }, 0)
-    }, 0)
+    e.dataTransfer.setDragImage(ghostImage(service), 48, 24)
+    dragDepth.current = 0
   }
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -273,8 +285,8 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
       .find(Boolean)
 
     const parentId = frame?.dataset.frame ?? null
-    const x = parentId ? 0 : (e.clientX - rect.left) / scale - 32
-    const y = parentId ? 0 : (e.clientY - rect.top) / scale - 32
+    const x = (e.clientX - rect.left) / scale - 32
+    const y = (e.clientY - rect.top) / scale - 32
 
     graphStore.addNode(service, { x, y }, parentId)
   }
@@ -302,7 +314,10 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
       return null
     }
 
-    return createPortal(content, body, node.id)
+    const parent = nodes.find((n) => n.id === node.parentId)
+    const inAsg = parent?.service === ServiceType.ASG
+
+    return createPortal(<InstanceCtx.Provider value={inAsg}>{content}</InstanceCtx.Provider>, body, node.id)
   }
 
   return (
@@ -341,10 +356,16 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
                     if (!e.dataTransfer.types.includes("text/service")) return
                     e.preventDefault()
                     e.dataTransfer.dropEffect = "copy"
+                  }}
+                  onDragEnter={(e) => {
+                    if (!e.dataTransfer.types.includes("text/service")) return
+                    e.preventDefault()
+                    dragDepth.current += 1
                     setHovering(true)
                   }}
-                  onDragLeave={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) setHovering(false)
+                  onDragLeave={() => {
+                    dragDepth.current = Math.max(0, dragDepth.current - 1)
+                    if (dragDepth.current === 0) setHovering(false)
                   }}
                   onDrop={onDrop}
                   className={board(hovering)}
@@ -372,13 +393,12 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
         >
           <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4">
             {docked.length === 0 && (
-              <div className="h-full w-full grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
+              <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
                 Drag a graph from a service to view the graphs here
               </div>
             )}
-            {docked.map((item) => (
-              <DockedGraphCard key={item.id} item={item} cards={dockedCards} onMove={moveDocked} />
-            ))}
+
+            <DockedGraphPanel items={docked} onChange={updateDockedLayout} />
           </section>
         </Panel>
       </Group>

@@ -9,8 +9,10 @@ gsap.registerPlugin(Draggable, InertiaPlugin)
 
 let front = 1
 
-const bringToFront = (el: HTMLElement) => {
-  el.style.zIndex = String(++front)
+const NODE_LAYER = 1000
+
+const bringToFront = (el: HTMLElement, layer: number) => {
+  el.style.zIndex = String(layer + ++front)
 }
 
 const overlapArea = (a: DOMRect, b: DOMRect) =>
@@ -73,9 +75,12 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         return null
       }
 
+      const container = () => el.parentElement?.closest<HTMLElement>("[data-frame]")
+
       const settleDrop = () => {
         if (finished) return
         finished = true
+        container()?.removeAttribute("data-dragging")
 
         const nodeId = getNodeId()
         if (!nodeId) return
@@ -147,10 +152,11 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
 
         onPress(this: Draggable) {
           finished = false
+          container()?.setAttribute("data-dragging", "")
         },
 
         onDragStart(this: Draggable) {
-          bringToFront(this.target as HTMLElement)
+          bringToFront(this.target as HTMLElement, flow ? NODE_LAYER : 0)
         },
 
         onDragEnd(this: Draggable) {

@@ -6,6 +6,13 @@ const MAX_SCALE = 2.5
 /** Wheel pixels → zoom factor; exponential so trackpad and mouse wheels feel alike. */
 const WHEEL_ZOOM_RATE = 0.0015
 
+/**
+ * The board is a finite (but huge) rectangle centered on the transform origin,
+ * so there is always droppable surface under the cursor no matter where you
+ * pan. The identity transform centers the board's origin on screen.
+ */
+export const BOARD_HALF = 50_000
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 interface Transform {
@@ -14,7 +21,7 @@ interface Transform {
   scale: number
 }
 
-const IDENTITY: Transform = { x: 0, y: 0, scale: 1 }
+const IDENTITY: Transform = { x: BOARD_HALF, y: BOARD_HALF, scale: 1 }
 
 const zoomAt = (prev: Transform, cursorX: number, cursorY: number, deltaY: number): Transform => {
   const scale = clamp(prev.scale * Math.exp(-deltaY * WHEEL_ZOOM_RATE), MIN_SCALE, MAX_SCALE)
@@ -123,11 +130,21 @@ export default function Viewport({ children }: { children: ReactNode }) {
         panning && "cursor-grabbing",
       )}
     >
+      {/* The board rectangle itself: huge and centered on the transform
+          origin, so panning never runs the drop surface out from under the
+          cursor. Content renders at the transform origin (the visible top-left
+          at identity), well inside the board. */}
       <div
-        className="absolute top-0 left-0 w-full h-full origin-top-left"
-        style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+        className="absolute top-0 left-0 origin-top-left"
+        style={{
+          transform: `translate(${transform.x - BOARD_HALF * transform.scale}px, ${
+            transform.y - BOARD_HALF * transform.scale
+          }px) scale(${transform.scale})`,
+          width: BOARD_HALF * 2,
+          height: BOARD_HALF * 2,
+        }}
       >
-        {children}
+        <div className="relative w-full h-full">{children}</div>
       </div>
 
       <div className="absolute bottom-3 right-3 flex flex-col items-center gap-1.5 z-10">

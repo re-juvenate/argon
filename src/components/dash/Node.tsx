@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
@@ -10,6 +10,9 @@ import { Metric } from "./metrics"
 import { useNodeResult } from "./Simulation"
 
 const BOTH_SOCKETS = [SocketType.Input, SocketType.Output]
+const NO_SOCKETS: SocketType[] = []
+
+export const InstanceCtx = createContext(false)
 
 interface NodeProps {
   name: string
@@ -44,6 +47,8 @@ export default function Node({
 }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
+  const instance = useContext(InstanceCtx)
+  const shown = instance ? NO_SOCKETS : sockets
   const { result, history } = useNodeResult(id)
   const series = graph ?? (history.length > 1 ? sparkData(history) : undefined)
 
@@ -132,7 +137,7 @@ export default function Node({
         )}
       </div>
 
-      {sockets.map((type) => (
+      {shown.map((type) => (
         <Socket key={type} type={type} />
       ))}
     </div>

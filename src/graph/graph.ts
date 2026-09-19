@@ -31,15 +31,21 @@ export function setPosition(graph: Graph, id: string, position: Position): Graph
   return updateNode(graph, id, { position })
 }
 
+export const ASG_MEMBERS = new Set<ServiceType>([ServiceType.EC2, ServiceType.ECS])
+
 export function setParent(graph: Graph, id: string, parentId: string | null): Graph {
   const parent = parentId === null ? undefined : nodeById(graph, parentId)
   if (parentId !== null && (parentId === id || !parent)) return graph
-  const next = updateNode(graph, id, { parentId: parentId ?? undefined })
+  if (parent?.service === ServiceType.ASG && !ASG_MEMBERS.has(nodeById(graph, id)?.service as ServiceType)) return graph
+  const detached = parent?.service === ServiceType.ASG ? { ...graph, edges: graph.edges.filter((e) => e.from !== id && e.to !== id) } : graph
+  const next = updateNode(detached, id, { parentId: parentId ?? undefined })
   return parent?.service === ServiceType.Region ? inheritRegion(next, id, parent.config.code) : next
 }
 
 export function place(graph: Graph, id: string, position: Position, parentId: string | null): Graph {
-  return setParent(setPosition(graph, id, position), id, parentId)
+  const parented = setParent(graph, id, parentId)
+  if (parented === graph) return graph
+  return nodeById(parented, id) ? setPosition(parented, id, position) : parented
 }
 
 export const childrenOf = (graph: Graph, id: string): GraphNode[] => graph.nodes.filter((n) => n.parentId === id)

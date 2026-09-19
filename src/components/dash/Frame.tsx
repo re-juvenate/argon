@@ -30,7 +30,7 @@ const Frame = ({ id, name, icon, style, sockets = false, droppable = true, visib
     <div
       ref={islandRef}
       style={style}
-      data-frame={droppable ? id : undefined}
+      data-frame={id}
       data-id={id}
       className="w-fit border-2 border-dashed border-[#147eba] flex flex-col relative"
     >
@@ -56,7 +56,7 @@ const Frame = ({ id, name, icon, style, sockets = false, droppable = true, visib
       <div
         ref={droppable ? bodyRef : undefined}
         data-frame-body
-        className={cn("p-3 flex flex-col gap-2", collapsed && "hidden")}
+        className={cn("p-3 flex flex-col gap-2 max-h-[60vh] max-w-[70vw] overflow-auto [[data-dragging]_&]:overflow-visible", collapsed && "hidden")}
       >
         {children}
       </div>

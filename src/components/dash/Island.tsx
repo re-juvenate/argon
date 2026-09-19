@@ -115,10 +115,12 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
             x = (rect.left - boardRect.left) / scale
             y = (rect.top - boardRect.top) / scale
           } else {
+            // Frame-local coords are unscaled board units; rect deltas are
+            // screen pixels under the viewport transform.
             const bodyRect = hit.body.getBoundingClientRect()
 
-            x = rect.left - bodyRect.left
-            y = rect.top - bodyRect.top
+            x = (rect.left - bodyRect.left) / scale
+            y = (rect.top - bodyRect.top) / scale
           }
         }
 

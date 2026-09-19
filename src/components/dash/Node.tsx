@@ -26,19 +26,7 @@ interface GraphPayload {
   color: string
 }
 
-export default function Node({
-  name,
-  color,
-  icon,
-  graph,
-  cost,
-  style,
-  id,
-  selected,
-  onSelect,
-  visibleChildren,
-  children,
-}: NodeProps) {
+export default function Node({ name, color, icon, graph, cost, style, id, selected, onSelect, visibleChildren, children }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
 
@@ -119,18 +107,7 @@ export default function Node({
         )}
 
         {visibleChildren}
-        {/* Collapsed children stay mounted and invisible: their width keeps
-            reserving space, so expanding never changes the node's width. */}
-        {children && (
-          <div
-            className={clsx(
-              "flex flex-col gap-2",
-              !isOpen && "invisible h-0 overflow-hidden",
-            )}
-          >
-            {children}
-          </div>
-        )}
+        {children && <div className={clsx("flex flex-col gap-2", !isOpen && "invisible h-0 overflow-hidden")}>{children}</div>}
       </div>
 
       <Socket type={SocketType.Input} />

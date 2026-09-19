@@ -1,4 +1,4 @@
-import React, { useState, useMemo, type CSSProperties } from "react"
+import { useState, useMemo, type CSSProperties } from "react"
 import { AreaChart, Card } from "@tremor/react"
 
 export interface ChartDataItem {
@@ -9,7 +9,6 @@ export interface ChartDataItem {
 
 interface GraphProps {
   chartdata: ChartDataItem[]
-  /** Stretch to fill the parent box instead of using the intrinsic size. */
   fill?: boolean
   color?: string
 }
@@ -38,10 +37,7 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
 
   const maxItem = useMemo(() => {
     if (!chartdata || chartdata.length === 0) return null
-    return chartdata.reduce(
-      (max, item) => (item.Throughput > max.Throughput ? item : max),
-      chartdata[0],
-    )
+    return chartdata.reduce((max, item) => (item.Throughput > max.Throughput ? item : max), chartdata[0])
   }, [chartdata])
 
   const payload = hoverData?.payload?.[0]
@@ -75,17 +71,9 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
   const displayDate = currentItem ? currentItem.time : "--"
 
   return (
-    <Card
-      className={classNames(
-        "bg-[#0a0a0a] border-[#1f1f1f] text-white",
-        fill ? "w-full h-full flex flex-col" : "w-full",
-      )}
-    >
+    <Card className={classNames("bg-[#0a0a0a] border-[#1f1f1f] text-white", fill ? "w-full h-full flex flex-col" : "w-full")}>
       <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
-        Throughput{" "}
-        {!payload && (
-          <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>
-        )}
+        Throughput {!payload && <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>}
       </p>
       <p className="mt-2 text-3xl font-bold tracking-tight text-white">{displayValue}</p>
       <p className="mt-1 flex items-baseline justify-between">
@@ -93,32 +81,26 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
         <span
           className={classNames(
             "rounded px-2 py-0.5 text-xs font-semibold",
-            !payload
-              ? "text-neutral-400 bg-neutral-900"
-              : percentageChange > 0
-                ? "text-emerald-400 bg-emerald-950/40"
-                : "text-red-400 bg-red-950/40",
+            !payload ? "text-neutral-400 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/40" : "text-red-400 bg-red-950/40",
           )}
         >
           {payload ? formatChange(payload, percentageChange, absoluteChange) : "Max Throughput"}
         </span>
       </p>
 
-      {/* Tremor only takes palette names, so the exact service color is applied
-          via a CSS variable + important arbitrary variants (stroke, gradient
-          currentColor, dots). */}
       <AreaChart
         className={classNames(
           "mt-6 text-white",
           fill ? "flex-1 min-h-0" : "h-80",
-          "[&_.recharts-area-curve]:!stroke-[var(--graph-color)]",
-          "[&_linearGradient]:!text-[var(--graph-color)]",
-          "[&_.recharts-dot]:!stroke-[var(--graph-color)] [&_.recharts-dot]:!fill-[var(--graph-color)]",
+          "[&_.recharts-area-curve]:stroke-(--graph-color)!",
+          "[&_linearGradient]:text-(--graph-color)!",
+          "[&_.recharts-dot]:stroke-(--graph-color)! [&_.recharts-dot]:fill-(--graph-color)!",
         )}
         style={{ "--graph-color": color } as CSSProperties}
         data={chartdata}
         index="time"
         showLegend={false}
+        autoMinValue={true}
         showYAxis={false}
         showGradient={true}
         startEndOnly={true}

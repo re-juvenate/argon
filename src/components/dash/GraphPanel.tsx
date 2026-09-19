@@ -21,8 +21,10 @@ export const GRID = 48
 export const CARD_W = 336 // 7 * GRID
 const CARD_H = 384 // 8 * GRID
 
+// `time` is the chart index: values must be unique or recharts emits
+// duplicate tick keys ("tick-1-0-0"...).
 const makeChartData = (values: number[]): ChartDataItem[] =>
-  values.map((Throughput, i) => ({ time: "1", Throughput, Time: i }))
+  values.map((Throughput, i) => ({ time: String(i), Throughput, Time: i }))
 
 export const DEFAULT_DOCKED: Docked[] = [
   {

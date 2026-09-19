@@ -14,8 +14,8 @@ const App = () => {
 
   return (
     <div className="bg-background min-h-screen w-screen">
-      {/*<Layout />*/}
-      <AwsMap />
+      <Layout />
+      {/*<AwsMap />*/}
       {/*<Graph chartdata={mockChartData} />*/}
     </div>
   )

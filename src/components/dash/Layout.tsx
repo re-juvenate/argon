@@ -9,7 +9,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react"
 import { createPortal } from "react-dom"
-import { createRoot } from "react-dom/client"
 
 import gsap from "gsap"
 import { Draggable } from "gsap/Draggable"
@@ -121,6 +120,22 @@ const board = (hovering: boolean) =>
     hovering && "shadow-[inset_0_0_0_2px_var(--color-blueprimary)]",
   )
 
+// Drag images must (a) be set synchronously inside dragstart — async
+// setDragImage is ignored and the browser falls back to a page snapshot — and
+// (b) already be decoded, so each ghost is a pre-warmed <img> built once.
+const ghostImage = (id: string): HTMLImageElement => {
+  const existing = ghostCache.get(id)
+  if (existing) return existing
+
+  const img = new Image()
+  img.src = `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="48"><rect width="96" height="48" rx="8" fill="#2a2a2a" stroke="#3b82f6"/><text x="48" y="29" fill="#fff" font-family="monospace" font-size="13" text-anchor="middle">${id}</text></svg>`,
+  )}`
+  ghostCache.set(id, img)
+  return img
+}
+const ghostCache = new Map<string, HTMLImageElement>()
+
 export default function Layout() {
   const [placed, setPlaced] = useState<Placed[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -164,17 +179,11 @@ interface EditorProps {
   setHovering: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-function Editor({
-  placed,
-  setPlaced,
-  selectedId,
-  setSelectedId,
-  hovering,
-  setHovering,
-}: EditorProps) {
+function Editor({ placed, setPlaced, selectedId, setSelectedId, hovering, setHovering }: EditorProps) {
   const { frameBodies } = useEditor()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
+  const [selected, _] = useState(false)
   const dockedCards = useRef(new Map<string, HTMLDivElement | null>())
   const moveDocked = useCallback((id: string, x: number, y: number) => {
     setDocked((items) => items.map((item) => (item.id === id ? { ...item, x, y } : item)))
@@ -233,29 +242,25 @@ function Editor({
     [setSelectedId],
   )
 
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, id: string, service?: ServiceType) => {
+  // Track dragenter/dragleave depth so child transitions don't flicker the
+  // highlight off while crossing nested elements.
+  const dragDepth = useRef(0)
+
+  // Decode every palette ghost up-front so the first drag already has its
+  // image ready.
+  useEffect(() => {
+    PALETTE.forEach(({ id }) => ghostImage(id))
+  }, [])
+
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, id: string) => {
     e.dataTransfer.setData("text/service", id)
     e.dataTransfer.effectAllowed = "copy"
-    const ghostContainer = document.createElement("div")
-    ghostContainer.style.position = "absolute"
-    ghostContainer.style.top = "-9999px"
-    ghostContainer.style.left = "-9999px"
-    ghostContainer.style.pointerEvents = "none"
-    document.body.appendChild(ghostContainer)
-    const Ghost = service ? SERVICES[service] : () => <Frame name="Region" style={{ width: REGION_SIZE, height: 240 }} />
-    const root = createRoot(ghostContainer)
-    root.render(<Ghost />)
-    setTimeout(() => {
-      e.dataTransfer.setDragImage(ghostContainer, 32, 32)
-      setTimeout(() => {
-        root.unmount()
-        ghostContainer.remove()
-      }, 0)
-    }, 0)
+    e.dataTransfer.setDragImage(ghostImage(id), 48, 24)
   }
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    dragDepth.current = 0
     setHovering(false)
     const id = e.dataTransfer.getData("text/service")
     if (!PALETTE.some((item) => item.id === id)) return
@@ -273,6 +278,18 @@ function Editor({
     if (!parentId) {
       x = e.clientX - rect.left - 32
       y = e.clientY - rect.top - 32
+    } else if (frame) {
+      // Frame bodies live inside the (possibly scaled) viewport: convert the
+      // screen-space drop point into frame-local coordinates.
+      const body = frameBodies.get(parentId)
+      if (body) {
+        const bodyRect = body.getBoundingClientRect()
+        const board = e.currentTarget
+        const boardRect = board.getBoundingClientRect()
+        const scale = board.offsetWidth > 0 ? boardRect.width / board.offsetWidth : 1
+        x = (e.clientX - bodyRect.left) / scale
+        y = (e.clientY - bodyRect.top) / scale
+      }
     }
 
     setPlaced((nodes) => [
@@ -287,9 +304,10 @@ function Editor({
     ])
   }
 
+  const RegionFrame = useCallback(({ style, id }: NodeComponentProps) => <Frame name="Region" style={{ width: REGION_SIZE, ...style }} id={id} />, [])
+
   const renderPlacedNode = (node: Placed) => {
-    const Service: ComponentType<NodeComponentProps> =
-      node.paletteId in SERVICES ? SERVICES[node.paletteId as ServiceType] : () => <Frame name="Region" style={{ width: REGION_SIZE }} />
+    const Service: ComponentType<NodeComponentProps> = node.paletteId in SERVICES ? SERVICES[node.paletteId as ServiceType] : RegionFrame
 
     const content = (
       <div
@@ -298,10 +316,7 @@ function Editor({
           boxShadow: selectedId === node.id ? SELECT_RING : undefined,
         }}
       >
-        <Service
-          id={node.id}
-          style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined}
-        />
+        <Service id={node.id} style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined} />
       </div>
     )
 
@@ -327,13 +342,8 @@ function Editor({
               <section className="h-full w-full p-4 flex flex-col gap-2 overflow-y-auto">
                 <div className="text-sm font-semibold mb-2 text-white">Services</div>
 
-                {PALETTE.map(({ id, label, icon, service }) => (
-                  <div
-                    key={id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, id, service)}
-                    className={sidebarItem}
-                  >
+                {PALETTE.map(({ id, label, icon }) => (
+                  <div key={id} draggable onClick={() => {}} onDragStart={(e) => handleDragStart(e, id)} className={sidebarItem}>
                     {icon && <img src={icon} alt="" className={sidebarIcon} />}
                     {label}
                   </div>
@@ -348,14 +358,19 @@ function Editor({
                 <div
                   data-island-board
                   onPointerDownCapture={onSelectPointerDown}
-                  onDragOver={(e) => {
+                  onDragEnter={(e) => {
                     e.preventDefault()
-
-                    e.dataTransfer.dropEffect = "copy"
-
+                    dragDepth.current += 1
                     setHovering(true)
                   }}
-                  onDragLeave={() => setHovering(false)}
+                  onDragLeave={() => {
+                    dragDepth.current = Math.max(0, dragDepth.current - 1)
+                    if (dragDepth.current === 0) setHovering(false)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = "copy"
+                  }}
                   onDrop={onDrop}
                   className={board(hovering)}
                 >

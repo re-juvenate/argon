@@ -3,10 +3,12 @@ import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Draggable } from "gsap/Draggable"
 import { InertiaPlugin } from "gsap/InertiaPlugin"
+import { useEditor } from "./EditorContext"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
 let front = 1
+
 const bringToFront = (el: HTMLElement) => {
   el.style.zIndex = String(++front)
 }
@@ -25,18 +27,107 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
   flow = false,
 }: IslandOptions = {}) => {
   const ref = useRef<T | null>(null)
+  const { moveNode } = useEditor()
 
   useGSAP(
     () => {
       const el = ref.current
-      const board = el?.closest<HTMLElement>("[data-island-board]")
-      if (!el || !board) return
+      if (!el) return
+
+      const board = el.closest<HTMLElement>("[data-island-board]")
+
+      if (!board) return
 
       if (!flow || el.parentElement === board) {
         el.style.position = "absolute"
       }
 
       const trigger = handle?.current ?? undefined
+
+      let finished = true
+
+      const getNodeId = () => el.closest<HTMLElement>("[data-island-id]")?.dataset.islandId ?? null
+
+      const getFrameAtPoint = (x: number, y: number) => {
+        const elements = document.elementsFromPoint(x, y) as HTMLElement[]
+
+        for (const element of elements) {
+          const frame = element.closest<HTMLElement>("[data-frame]")
+
+          if (!frame) continue
+
+          const body = frame.querySelector<HTMLElement>(":scope > [data-frame-body]")
+
+          if (body && !body.classList.contains("hidden")) {
+            return {
+              frame,
+              body,
+            }
+          }
+        }
+
+        return null
+      }
+
+      const settleDrop = (instance: Draggable) => {
+        if (finished) return
+        finished = true
+
+        const nodeId = getNodeId()
+        if (!nodeId) return
+
+        const rect = el.getBoundingClientRect()
+        const boardRect = board.getBoundingClientRect()
+
+        const ownFrame = el.closest<HTMLElement>("[data-frame]")
+
+        const ownFrameId = ownFrame?.dataset.frame ?? null
+
+        const hit = getFrameAtPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+
+        let parentId: string | null = null
+        let x = 0
+        let y = 0
+
+        if (flow) {
+          if (hit) {
+            parentId = hit.frame.dataset.frame ?? null
+          } else if (ownFrame) {
+            const ownRect = ownFrame.getBoundingClientRect()
+
+            const mostlyOutside = overlapArea(rect, ownRect) < (rect.width * rect.height) / 2
+
+            parentId = mostlyOutside ? null : ownFrameId
+          }
+
+          if (parentId === null) {
+            x = rect.left - boardRect.left
+            y = rect.top - boardRect.top
+          }
+        } else {
+          parentId = hit?.frame.dataset.frame ?? null
+
+          if (parentId === null || !hit) {
+            x = rect.left - boardRect.left
+            y = rect.top - boardRect.top
+          } else {
+            const bodyRect = hit.body.getBoundingClientRect()
+
+            x = rect.left - bodyRect.left
+            y = rect.top - bodyRect.top
+          }
+        }
+
+        gsap.killTweensOf(el, "x,y")
+        gsap.set(el, {
+          x: 0,
+          y: 0,
+        })
+
+        moveNode(nodeId, parentId, x, y)
+
+        instance.applyBounds(board)
+      }
 
       const [instance] = Draggable.create(el, {
         type: "x,y",
@@ -46,97 +137,38 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         edgeResistance: 1,
         zIndexBoost: false,
         allowEventDefault: true,
+
         onPress(this: Draggable) {
+          finished = false
           this.applyBounds(board)
         },
+
         onDragStart(this: Draggable) {
           bringToFront(this.target as HTMLElement)
         },
+
         onDragEnd(this: Draggable) {
-          const parent = el.parentElement
-          if (!parent) return
-
-          const r = el.getBoundingClientRect()
-          const hit = (
-            document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2) as HTMLElement[]
-          ).filter((n) => !el.contains(n))
-          const ownFrame = el.closest<HTMLElement>("[data-frame]")
-          const hitFrame = hit.find((n) => n.dataset.frame !== undefined)
-          const otherFrame = hitFrame && hitFrame !== ownFrame ? hitFrame : undefined
-          const rawBody = otherFrame?.querySelector<HTMLElement>(":scope > [data-frame-body]")
-          const body = rawBody && !rawBody.classList.contains("hidden") ? rawBody : undefined
-
-          const ownRect = ownFrame?.getBoundingClientRect()
-          const mostlyOutside = !ownRect || overlapArea(r, ownRect) < (r.width * r.height) / 2
-          const commit = (place: () => () => void) => {
-            const settle = place()
-            gsap.killTweensOf(el, "x,y")
-            queueMicrotask(() => gsap.killTweensOf(el, "x,y"))
-            requestAnimationFrame(() => {
-              gsap.killTweensOf(el, "x,y")
-              settle()
-            })
-          }
-
-          const moveTo = (newParent: HTMLElement) => {
-            const prev = el.getBoundingClientRect()
-            gsap.set(el, { x: 0, y: 0 })
-            el.style.position = "absolute"
-            el.style.left = ""
-            el.style.top = ""
-            bringToFront(el)
-            newParent.appendChild(el)
-            const now = el.getBoundingClientRect()
-            const dx = prev.left - now.left
-            const dy = prev.top - now.top
-            gsap.set(el, { x: dx, y: dy })
-            return () => gsap.set(el, { x: dx, y: dy })
-          }
-
-          if (flow) {
-            if (parent === board) {
-              if (!body) return
-              commit(() => {
-                el.style.position = ""
-                el.style.left = ""
-                el.style.top = ""
-                gsap.set(el, { x: 0, y: 0 })
-                body.appendChild(el)
-                return () => gsap.set(el, { x: 0, y: 0 })
-              })
-            } else if (body) {
-              commit(() => {
-                if (body !== parent) {
-                  el.style.position = ""
-                  el.style.left = ""
-                  el.style.top = ""
-                  gsap.set(el, { x: 0, y: 0 })
-                  body.appendChild(el)
-                }
-                return () => gsap.set(el, { x: 0, y: 0 })
-              })
-            } else if (mostlyOutside) {
-              commit(() => moveTo(board))
-            } else {
-              commit(() => {
-                gsap.set(el, { x: 0, y: 0 })
-                return () => gsap.set(el, { x: 0, y: 0 })
-              })
+          queueMicrotask(() => {
+            if (!this.isThrowing) {
+              settleDrop(this)
             }
-          } else {
-            if (hitFrame && hitFrame === ownFrame) return
-            const target = body ?? board
-            if (target === parent) return
-            commit(() => moveTo(target))
-          }
+          })
+        },
+
+        onThrowComplete(this: Draggable) {
+          settleDrop(this)
         },
       })
 
       return () => {
         instance.kill()
+        gsap.killTweensOf(el)
       }
     },
-    { scope: ref, dependencies: [handle, flow] },
+    {
+      scope: ref,
+      dependencies: [handle, flow, moveNode],
+    },
   )
 
   return ref

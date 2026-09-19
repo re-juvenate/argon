@@ -26,8 +26,13 @@ export default function Node({
   children,
 }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
+
   const headerRef = useRef<HTMLDivElement>(null)
-  const islandRef = useIsland<HTMLDivElement>({ flow: true, handle: headerRef })
+
+  const islandRef = useIsland<HTMLDivElement>({
+    flow: true,
+    handle: headerRef,
+  })
 
   return (
     <div
@@ -45,11 +50,14 @@ export default function Node({
     >
       <div
         ref={headerRef}
-        style={{ backgroundColor: color }}
+        style={{
+          backgroundColor: color,
+        }}
         className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2"
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <span>{name}</span>
+
         {children && (
           <span className="text-sm">{isOpen ? <CaretUpIcon /> : <CaretDownIcon />}</span>
         )}
@@ -57,8 +65,10 @@ export default function Node({
 
       <div className="flex flex-col px-2 flex-1 gap-2">
         {visibleChildren}
+
         {children && isOpen && <div className="flex flex-col gap-2">{children}</div>}
       </div>
+
       <Socket />
     </div>
   )

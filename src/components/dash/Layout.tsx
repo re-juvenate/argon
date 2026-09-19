@@ -1,10 +1,21 @@
-import { useEffect, useState, type CSSProperties, type ComponentType, type DragEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ComponentType,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
+import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
+
 import { Group, Panel, Separator } from "react-resizable-panels"
 import clsx from "clsx"
 
 import { ServiceType } from "../../types/math"
 import EdgeLayer from "./Edge"
+
 import EC2 from "./nodes/ec2/EC2"
 import SQS from "./nodes/sqs/SQS"
 import ELB from "./nodes/elb/ELB"
@@ -16,20 +27,28 @@ import Lambda from "./nodes/lambda/lambda"
 import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
 
-const at = (left: number, top: number): CSSProperties => ({ left, top })
+import { EditorProvider, useEditor } from "./EditorContext"
+
+const at = (left: number, top: number): CSSProperties => ({
+  left,
+  top,
+})
 
 const DELETION_KEYS = new Set(["Backspace", "Delete"])
 
+const SELECT_RING = "0 0 0 2px var(--color-blueprimary)"
+
 interface NodeComponentProps {
   style?: CSSProperties
-  id?: string
-  selected?: boolean
 }
 
 const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.EC2]: EC2,
+
   [ServiceType.ECS]: Fargate,
+
   [ServiceType.ASG]: (props) => <ASG n={8} {...props} />,
+
   [ServiceType.LB]: ELB,
   [ServiceType.SQS]: SQS,
   [ServiceType.Lambda]: Lambda,
@@ -44,6 +63,7 @@ interface Placed {
   service: ServiceType
   x: number
   y: number
+  parentId: string | null
 }
 
 const sidebarItem = clsx(
@@ -59,40 +79,122 @@ const board = (hovering: boolean) =>
 
 export default function Layout() {
   const [placed, setPlaced] = useState<Placed[]>([])
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
   const [hovering, setHovering] = useState(false)
 
+  const moveNode = useCallback((id: string, parentId: string | null, x: number, y: number) => {
+    setPlaced((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              parentId,
+              x,
+              y,
+            }
+          : node,
+      ),
+    )
+  }, [])
+
+  return (
+    <EditorProvider moveNode={moveNode}>
+      <Editor
+        placed={placed}
+        setPlaced={setPlaced}
+        selectedId={selectedId}
+        setSelectedId={setSelectedId}
+        hovering={hovering}
+        setHovering={setHovering}
+      />
+    </EditorProvider>
+  )
+}
+
+interface EditorProps {
+  placed: Placed[]
+  setPlaced: React.Dispatch<React.SetStateAction<Placed[]>>
+  selectedId: string | null
+  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>
+  hovering: boolean
+  setHovering: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+function Editor({
+  placed,
+  setPlaced,
+  selectedId,
+  setSelectedId,
+  hovering,
+  setHovering,
+}: EditorProps) {
+  const { frameBodies } = useEditor()
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedId) return
+
+    setPlaced((nodes) => nodes.filter(({ id }) => id !== selectedId))
+
+    setSelectedId(null)
+  }, [selectedId, setPlaced, setSelectedId])
+
   useEffect(() => {
-    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (!DELETION_KEYS.has(e.key)) return
+
       const target = e.target as HTMLElement | null
-      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? ""))
+
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) {
         return
-      setPlaced((nodes) => nodes.filter(({ id }) => id !== selectedId))
-      setSelectedId(null)
+      }
+
+      deleteSelected()
     }
+
     window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedId])
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [deleteSelected])
+
+  const onSelectPointerDown = useCallback(
+    (e: ReactPointerEvent) => {
+      const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
+
+      setSelectedId(island?.dataset.islandId ?? null)
+    },
+    [setSelectedId],
+  )
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, service: ServiceType) => {
     e.dataTransfer.setData("text/service", service)
+
     e.dataTransfer.effectAllowed = "copy"
 
     const ghostContainer = document.createElement("div")
+
     ghostContainer.style.position = "absolute"
+
     ghostContainer.style.top = "-9999px"
+
     ghostContainer.style.left = "-9999px"
+
     ghostContainer.style.pointerEvents = "none"
+
     document.body.appendChild(ghostContainer)
 
     const ServiceComponent = SERVICES[service]
+
     const root = createRoot(ghostContainer)
 
     root.render(<ServiceComponent />)
 
     setTimeout(() => {
       e.dataTransfer.setDragImage(ghostContainer, 32, 32)
+
       setTimeout(() => {
         root.unmount()
         ghostContainer.remove()
@@ -103,19 +205,66 @@ export default function Layout() {
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setHovering(false)
+
     const service = e.dataTransfer.getData("text/service") as ServiceType
+
     if (!(service in SERVICES)) return
+
     const rect = e.currentTarget.getBoundingClientRect()
+
+    const frame = document
+      .elementsFromPoint(e.clientX, e.clientY)
+      .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
+      .find(Boolean)
+
+    const parentId = frame?.dataset.frame ?? null
+
+    let x = 0
+    let y = 0
+
+    if (!parentId) {
+      x = e.clientX - rect.left - 32
+
+      y = e.clientY - rect.top - 32
+    }
 
     setPlaced((nodes) => [
       ...nodes,
       {
         id: crypto.randomUUID(),
         service,
-        x: e.clientX - rect.left - 32,
-        y: e.clientY - rect.top - 32,
+        x,
+        y,
+        parentId,
       },
     ])
+  }
+
+  const renderPlacedNode = (node: Placed) => {
+    const Service = SERVICES[node.service]
+
+    const content = (
+      <div
+        data-island-id={node.id}
+        style={{
+          boxShadow: selectedId === node.id ? SELECT_RING : undefined,
+        }}
+      >
+        <Service style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined} />
+      </div>
+    )
+
+    if (!node.parentId) {
+      return <div key={node.id}>{content}</div>
+    }
+
+    const body = frameBodies.get(node.parentId)
+
+    if (!body) {
+      return null
+    }
+
+    return createPortal(content, body, node.id)
   }
 
   return (
@@ -126,6 +275,7 @@ export default function Layout() {
             <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
               <section className="h-full w-full p-4 flex flex-col gap-2 overflow-y-auto">
                 <div className="text-sm font-semibold mb-2 text-white">Services</div>
+
                 {Object.values(ServiceType).map((service) => (
                   <div
                     key={service}
@@ -144,9 +294,12 @@ export default function Layout() {
             <Panel defaultSize="85%">
               <div
                 data-island-board
+                onPointerDownCapture={onSelectPointerDown}
                 onDragOver={(e) => {
                   e.preventDefault()
+
                   e.dataTransfer.dropEffect = "copy"
+
                   setHovering(true)
                 }}
                 onDragLeave={() => setHovering(false)}
@@ -155,26 +308,30 @@ export default function Layout() {
               >
                 <EdgeLayer>
                   <EC2 style={at(40, 40)} />
+
                   <SQS style={at(340, 40)} />
+
                   <ELB style={at(640, 40)} />
-                  <ASG n={8} style={at(940, 360)}>
+
+                  <ASG id="main-asg" n={8} style={at(940, 360)}>
                     <EC2 />
                   </ASG>
+
                   <Aurora style={at(40, 360)} />
+
                   <Cloudfront style={at(340, 360)} />
+
                   <ELB style={at(640, 360)} />
+
                   <Fargate style={at(40, 620)} />
+
                   <Lambda style={at(340, 620)} />
+
                   <Route53 style={at(640, 620)} />
+
                   <S3 style={at(940, 40)} />
-                  {placed.map(({ id, service, x, y }) => {
-                    const Service = SERVICES[service]
-                    return (
-                      <div key={id} onPointerDown={() => setSelectedId(id)}>
-                        <Service style={at(x, y)} id={id} selected={selectedId === id} />
-                      </div>
-                    )
-                  })}
+
+                  {placed.map(renderPlacedNode)}
                 </EdgeLayer>
               </div>
             </Panel>

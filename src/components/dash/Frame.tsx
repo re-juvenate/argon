@@ -24,7 +24,7 @@ const Frame = ({ name, icon, style, id, children }: FrameProps) => {
       style={style}
       data-frame
       data-id={id}
-      className="w-fit border-2 border-dashed border-border flex flex-col relative"
+      className="w-fit border-2 border-dashed border-[#147eba] flex flex-col relative"
     >
       <div
         ref={headerRef}

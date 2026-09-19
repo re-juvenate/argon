@@ -39,6 +39,8 @@ import S3 from "./nodes/s3/s3"
 import { EditorProvider, useEditor } from "./EditorContext"
 import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
 import { GRID, CARD_W } from "./GraphPanel"
+import { serviceIcon } from "./icons"
+import Frame from "./Frame"
 
 const at = (left: number, top: number): CSSProperties => ({
   left,
@@ -66,18 +68,51 @@ const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.Aurora]: Aurora,
 }
 
+// Sidebar palette: the services plus Region, which drops as a frame (a region
+// groups the resources inside it).
+const SERVICE_ICON_FILES: Record<ServiceType, string> = {
+  [ServiceType.EC2]: "ec2.svg",
+  [ServiceType.ECS]: "ecs.svg",
+  [ServiceType.ASG]: "asg.svg",
+  [ServiceType.LB]: "elb.svg",
+  [ServiceType.SQS]: "sqs.svg",
+  [ServiceType.Lambda]: "lambda.svg",
+  [ServiceType.S3]: "s3.svg",
+  [ServiceType.CloudFront]: "cloudfront.svg",
+  [ServiceType.Route53]: "route53.svg",
+  [ServiceType.Aurora]: "aurora.svg",
+}
+
+const PALETTE: { id: string; label: string; icon: string; service?: ServiceType }[] = [
+  ...Object.values(ServiceType).map((service) => ({
+    id: service as string,
+    label: service,
+    icon: serviceIcon(SERVICE_ICON_FILES[service]) ?? "",
+    service,
+  })),
+  {
+    id: "region",
+    label: "Region",
+    icon: serviceIcon("region.svg") ?? "",
+  },
+]
+
+const REGION_SIZE = 420
+
 interface Placed {
   id: string
-  service: ServiceType
+  paletteId: string
   x: number
   y: number
   parentId: string | null
 }
 
 const sidebarItem = clsx(
-  "px-3 py-2 bg-neutral-800 text-white rounded text-sm font-mono select-none",
+  "flex items-center gap-2.5 px-3 py-2 bg-neutral-800 text-white rounded text-sm font-mono select-none",
   "cursor-grab active:cursor-grabbing hover:bg-neutral-700 transition-colors",
 )
+
+const sidebarIcon = clsx("size-5 shrink-0 pointer-events-none object-contain")
 
 const board = (hovering: boolean) =>
   clsx(
@@ -198,8 +233,8 @@ function Editor({
     [setSelectedId],
   )
 
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, service: ServiceType) => {
-    e.dataTransfer.setData("text/service", service)
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, id: string, service?: ServiceType) => {
+    e.dataTransfer.setData("text/service", id)
     e.dataTransfer.effectAllowed = "copy"
     const ghostContainer = document.createElement("div")
     ghostContainer.style.position = "absolute"
@@ -207,9 +242,9 @@ function Editor({
     ghostContainer.style.left = "-9999px"
     ghostContainer.style.pointerEvents = "none"
     document.body.appendChild(ghostContainer)
-    const ServiceComponent = SERVICES[service]
+    const Ghost = service ? SERVICES[service] : () => <Frame name="Region" style={{ width: REGION_SIZE, height: 240 }} />
     const root = createRoot(ghostContainer)
-    root.render(<ServiceComponent />)
+    root.render(<Ghost />)
     setTimeout(() => {
       e.dataTransfer.setDragImage(ghostContainer, 32, 32)
       setTimeout(() => {
@@ -222,8 +257,8 @@ function Editor({
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setHovering(false)
-    const service = e.dataTransfer.getData("text/service") as ServiceType
-    if (!(service in SERVICES)) return
+    const id = e.dataTransfer.getData("text/service")
+    if (!PALETTE.some((item) => item.id === id)) return
     const rect = e.currentTarget.getBoundingClientRect()
     const frame = document
       .elementsFromPoint(e.clientX, e.clientY)
@@ -244,7 +279,7 @@ function Editor({
       ...nodes,
       {
         id: crypto.randomUUID(),
-        service,
+        paletteId: id,
         x,
         y,
         parentId,
@@ -253,7 +288,8 @@ function Editor({
   }
 
   const renderPlacedNode = (node: Placed) => {
-    const Service = SERVICES[node.service]
+    const Service: ComponentType<NodeComponentProps> =
+      node.paletteId in SERVICES ? SERVICES[node.paletteId as ServiceType] : () => <Frame name="Region" style={{ width: REGION_SIZE }} />
 
     const content = (
       <div
@@ -291,14 +327,15 @@ function Editor({
               <section className="h-full w-full p-4 flex flex-col gap-2 overflow-y-auto">
                 <div className="text-sm font-semibold mb-2 text-white">Services</div>
 
-                {Object.values(ServiceType).map((service) => (
+                {PALETTE.map(({ id, label, icon, service }) => (
                   <div
-                    key={service}
+                    key={id}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, service)}
+                    onDragStart={(e) => handleDragStart(e, id, service)}
                     className={sidebarItem}
                   >
-                    {service}
+                    {icon && <img src={icon} alt="" className={sidebarIcon} />}
+                    {label}
                   </div>
                 ))}
               </section>

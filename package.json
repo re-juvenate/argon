@@ -25,6 +25,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-resizable-panels": "^4.12.4",
+    "react-simple-maps": "^5.0.5",
     "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3",
     "zod": "^4.6.5"

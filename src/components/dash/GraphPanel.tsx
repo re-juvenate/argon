@@ -1,16 +1,21 @@
-import { useEffect, useRef, type RefObject } from "react"
+import { useEffect, useMemo, useRef, type RefObject } from "react"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Draggable } from "gsap/Draggable"
 import { InertiaPlugin } from "gsap/InertiaPlugin"
 
 import Graph, { type ChartDataItem } from "./nodeoptions/graph"
+import type { NodeResult } from "#graph"
+import { Metric, METRICS } from "./metrics"
+import { useNodeResult } from "./Simulation"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
 export interface Docked {
   id: string
-  data: ChartDataItem[]
+  nodeId: string
+  metric: Metric
+  name: string
   x: number
   y: number
   color?: string
@@ -21,25 +26,10 @@ export const GRID = 48
 export const CARD_W = 336 // 7 * GRID
 const CARD_H = 384 // 8 * GRID
 
-const makeChartData = (values: number[]): ChartDataItem[] =>
-  values.map((Throughput, i) => ({ time: "1", Throughput, Time: i }))
+export const DEFAULT_DOCKED: Docked[] = []
 
-export const DEFAULT_DOCKED: Docked[] = [
-  {
-    id: "graph-1",
-    x: GRID,
-    y: GRID,
-    color: "#693cc5",
-    data: makeChartData([2890, 2756, 3322, 3470, 3475, 3129, 3560, 3402]),
-  },
-  {
-    id: "graph-2",
-    x: 8 * GRID,
-    y: GRID,
-    color: "#e66d00",
-    data: makeChartData([1240, 1580, 1420, 1930, 2210, 2050, 2480, 2760]),
-  },
-]
+const chartData = (history: readonly NodeResult[], metric: Metric): ChartDataItem[] =>
+  history.map((r, i) => ({ time: String(i), Throughput: METRICS[metric].pick(r), Time: i }))
 
 interface DockedGraphCardProps {
   item: Docked
@@ -54,6 +44,9 @@ interface DockedGraphCardProps {
  */
 export function DockedGraphCard({ item, cards, onMove }: DockedGraphCardProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const { history } = useNodeResult(item.nodeId)
+  const spec = METRICS[item.metric]
+  const data = useMemo(() => chartData(history, item.metric), [history, item.metric])
 
   useEffect(
     () => () => {
@@ -135,7 +128,7 @@ export function DockedGraphCard({ item, cards, onMove }: DockedGraphCardProps) {
       }}
       className="absolute top-0 left-0 cursor-grab active:cursor-grabbing rounded-lg border border-[#1f1f1f] shadow-lg shadow-black/40"
     >
-      <Graph chartdata={item.data} fill color={item.color} />
+      <Graph chartdata={data} fill color={item.color} title={`${item.name} · ${spec.label}`} unit={spec.unit} />
     </div>
   )
 }

@@ -11,7 +11,7 @@ import { serviceIcon } from "../../icons";
 // memoryMb, reservedConcurrency, regionConcurrency (sliders). Region is not
 // user-settable here; it is inferred from the parent.
 const Lambda = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [, patch, nodeId] = useNodeConfig<LambdaConfig>(ServiceType.Lambda, LAMBDA_DEFAULTS, id);
+  const [config, patch, nodeId] = useNodeConfig<LambdaConfig>(ServiceType.Lambda, LAMBDA_DEFAULTS, id);
 
   return (
     <Node
@@ -28,6 +28,7 @@ const Lambda = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={64}
         decimals={0}
         defaultValue={LAMBDA_DEFAULTS.memoryMb}
+        value={config.memoryMb}
         onChange={(memoryMb) => patch({ memoryMb })}
       />
       <Slider
@@ -37,6 +38,7 @@ const Lambda = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={1}
         decimals={0}
         defaultValue={LAMBDA_DEFAULTS.reservedConcurrency}
+        value={config.reservedConcurrency}
         onChange={(reservedConcurrency) => patch({ reservedConcurrency })}
       />
       <Slider
@@ -46,6 +48,7 @@ const Lambda = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={100}
         decimals={0}
         defaultValue={LAMBDA_DEFAULTS.regionConcurrency}
+        value={config.regionConcurrency}
         onChange={(regionConcurrency) => patch({ regionConcurrency })}
       />
     </Node>

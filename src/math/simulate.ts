@@ -24,6 +24,8 @@ import { model as s3 } from "./s3/throughput";
 import { model as cloudfront } from "./cloudfront/throughput";
 import { model as route53 } from "./route53/throughput";
 import { model as aurora } from "./aurora/throughput";
+import { model as client } from "./client/throughput";
+import { model as region } from "./region/throughput";
 import { model as ec2Latency } from "./ec2/latency";
 import { model as ecsLatency } from "./ecs/latency";
 import { model as asgLatency } from "./asg/latency";
@@ -34,6 +36,8 @@ import { model as s3Latency } from "./s3/latency";
 import { model as cloudfrontLatency } from "./cloudfront/latency";
 import { model as route53Latency } from "./route53/latency";
 import { model as auroraLatency } from "./aurora/latency";
+import { model as clientLatency } from "./client/latency";
+import { model as regionLatency } from "./region/latency";
 import { model as ec2Drop } from "./ec2/drop";
 import { model as ecsDrop } from "./ecs/drop";
 import { model as asgDrop } from "./asg/drop";
@@ -44,6 +48,8 @@ import { model as s3Drop } from "./s3/drop";
 import { model as cloudfrontDrop } from "./cloudfront/drop";
 import { model as route53Drop } from "./route53/drop";
 import { model as auroraDrop } from "./aurora/drop";
+import { model as clientDrop } from "./client/drop";
+import { model as regionDrop } from "./region/drop";
 
 // Per-service registries, one per objective (throughput, latency, drop), keyed by ServiceType.
 // Registry instead of a switch: `satisfies` makes it exhaustive over ServiceType while keeping
@@ -59,6 +65,8 @@ export const THROUGHPUT_MODELS = {
   [ServiceType.CloudFront]: cloudfront,
   [ServiceType.Route53]: route53,
   [ServiceType.Aurora]: aurora,
+  [ServiceType.Client]: client,
+  [ServiceType.Region]: region,
 } satisfies Record<ServiceType, ServiceModel<object, unknown>>;
 
 export type ServiceConfig<T extends ServiceType> = Parameters<(typeof THROUGHPUT_MODELS)[T]["evaluate"]>[0];
@@ -95,6 +103,8 @@ export const LATENCY_MODELS = {
   [ServiceType.CloudFront]: cloudfrontLatency,
   [ServiceType.Route53]: route53Latency,
   [ServiceType.Aurora]: auroraLatency,
+  [ServiceType.Client]: clientLatency,
+  [ServiceType.Region]: regionLatency,
 } satisfies Record<ServiceType, LatencyModel<object, unknown>>;
 
 export function latencyModel<T extends ServiceType>(type: T): (typeof LATENCY_MODELS)[T] {
@@ -122,6 +132,8 @@ export const DROP_MODELS = {
   [ServiceType.CloudFront]: cloudfrontDrop,
   [ServiceType.Route53]: route53Drop,
   [ServiceType.Aurora]: auroraDrop,
+  [ServiceType.Client]: clientDrop,
+  [ServiceType.Region]: regionDrop,
 } satisfies Record<ServiceType, DropModel<object, unknown>>;
 
 export function dropModel<T extends ServiceType>(type: T): (typeof DROP_MODELS)[T] {

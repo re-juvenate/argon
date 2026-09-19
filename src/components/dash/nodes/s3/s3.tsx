@@ -49,8 +49,8 @@ const S3 = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("s3.svg")}
       style={style}
     >
-      <Dropdown label="Storage Class" options={tierOptions} />
-      {ARCHIVE_TIERS.has(config.tier ?? S3_DEFAULTS.tier) && <Dropdown label="Retrieval Speed" options={retrievalOptions} />}
+      <Dropdown label="Storage Class" options={tierOptions} value={TIER_NAMES[config.tier ?? S3_DEFAULTS.tier]} />
+      {ARCHIVE_TIERS.has(config.tier ?? S3_DEFAULTS.tier) && <Dropdown label="Retrieval Speed" options={retrievalOptions} value={RETRIEVAL_NAMES[config.retrieval ?? S3_DEFAULTS.retrieval]} />}
     </Node>
   );
 };

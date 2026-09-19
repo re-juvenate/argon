@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ComponentType,
   type DragEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react"
 import { createPortal } from "react-dom"
@@ -21,7 +22,9 @@ import clsx from "clsx"
 import { ServiceType } from "../../types/math"
 import EdgeLayer from "./Edge"
 import Viewport from "./Viewport"
-import { type ChartDataItem } from "./nodeoptions/graph"
+import { GRAPH_MIME, Metric, METRICS, type GraphPayload } from "./metrics"
+import ContextMenu, { type MenuAt, type MenuItem } from "./ContextMenu"
+import { ChartLineIcon, SquaresFourIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
@@ -29,6 +32,8 @@ import EC2 from "./nodes/ec2/EC2"
 import SQS from "./nodes/sqs/SQS"
 import ELB from "./nodes/elb/ELB"
 import ASG from "./frames/asg/ASG"
+import Region from "./frames/region/Region"
+import Client from "./nodes/client/Client"
 import Aurora from "./nodes/aurora/aurora"
 import Cloudfront from "./nodes/cloudfront/cloudfront"
 import Fargate from "./nodes/fargate/fargate"
@@ -40,7 +45,11 @@ import { EditorProvider, useEditor } from "./EditorContext"
 import { DEFAULT_DOCKED, DockedGraphCard, type Docked } from "./GraphPanel"
 import { GRID, CARD_W } from "./GraphPanel"
 import { serviceIcon } from "./icons"
-import Frame from "./Frame"
+import { SERVICE_COLORS } from "./colors"
+import { graphStore, useGraph } from "#graph"
+import { SimulationProvider } from "./Simulation"
+import SimulationBar from "./SimulationBar"
+import type { GraphNode } from "#graph/types"
 
 const at = (left: number, top: number): CSSProperties => ({
   left,
@@ -48,7 +57,6 @@ const at = (left: number, top: number): CSSProperties => ({
 })
 
 const DELETION_KEYS = new Set(["Backspace", "Delete"])
-const SELECT_RING = "0 0 0 2px var(--color-blueprimary)"
 
 interface NodeComponentProps {
   style?: CSSProperties
@@ -58,7 +66,7 @@ interface NodeComponentProps {
 const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.EC2]: EC2,
   [ServiceType.ECS]: Fargate,
-  [ServiceType.ASG]: (props) => <ASG n={8} {...props} />,
+  [ServiceType.ASG]: ASG,
   [ServiceType.LB]: ELB,
   [ServiceType.SQS]: SQS,
   [ServiceType.Lambda]: Lambda,
@@ -66,11 +74,11 @@ const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.CloudFront]: Cloudfront,
   [ServiceType.Route53]: Route53,
   [ServiceType.Aurora]: Aurora,
+  [ServiceType.Client]: Client,
+  [ServiceType.Region]: Region,
 }
 
-// Sidebar palette: the services plus Region, which drops as a frame (a region
-// groups the resources inside it).
-const SERVICE_ICON_FILES: Record<ServiceType, string> = {
+const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
   [ServiceType.EC2]: "ec2.svg",
   [ServiceType.ECS]: "ecs.svg",
   [ServiceType.ASG]: "asg.svg",
@@ -81,31 +89,16 @@ const SERVICE_ICON_FILES: Record<ServiceType, string> = {
   [ServiceType.CloudFront]: "cloudfront.svg",
   [ServiceType.Route53]: "route53.svg",
   [ServiceType.Aurora]: "aurora.svg",
+  [ServiceType.Client]: undefined,
+  [ServiceType.Region]: "region.svg",
 }
 
-const PALETTE: { id: string; label: string; icon: string; service?: ServiceType }[] = [
-  ...Object.values(ServiceType).map((service) => ({
-    id: service as string,
-    label: service,
-    icon: serviceIcon(SERVICE_ICON_FILES[service]) ?? "",
-    service,
-  })),
-  {
-    id: "region",
-    label: "Region",
-    icon: serviceIcon("region.svg") ?? "",
-  },
-]
+const PALETTE = Object.values(ServiceType).map((service) => {
+  const file = SERVICE_ICON_FILES[service]
+  return { service, icon: file ? serviceIcon(file as `${string}.svg`) : undefined }
+})
 
-const REGION_SIZE = 420
-
-interface Placed {
-  id: string
-  paletteId: string
-  x: number
-  y: number
-  parentId: string | null
-}
+const isService = (value: string): value is ServiceType => (Object.values(ServiceType) as string[]).includes(value)
 
 const sidebarItem = clsx(
   "flex items-center gap-2.5 px-3 py-2 bg-neutral-800 text-white rounded text-sm font-mono select-none",
@@ -117,97 +110,75 @@ const sidebarIcon = clsx("size-5 shrink-0 pointer-events-none object-contain")
 const board = (hovering: boolean) =>
   clsx(
     // No overflow clipping: the canvas is infinite, the viewport owns the clip.
-    "relative w-full h-full transition-shadow duration-150",
+    "relative w-full h-full transition-shadow duration-150 select-none outline-none",
     hovering && "shadow-[inset_0_0_0_2px_var(--color-blueprimary)]",
   )
 
+const moveNode = (id: string, parentId: string | null, x: number, y: number) => graphStore.place(id, { x, y }, parentId)
+
 export default function Layout() {
-  const [placed, setPlaced] = useState<Placed[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hovering, setHovering] = useState(false)
 
-  const moveNode = useCallback((id: string, parentId: string | null, x: number, y: number) => {
-    setPlaced((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              parentId,
-              x,
-              y,
-            }
-          : node,
-      ),
-    )
-  }, [])
-
   return (
-    <EditorProvider moveNode={moveNode}>
-      <Editor
-        placed={placed}
-        setPlaced={setPlaced}
-        selectedId={selectedId}
-        setSelectedId={setSelectedId}
-        hovering={hovering}
-        setHovering={setHovering}
-      />
-    </EditorProvider>
+    <SimulationProvider>
+      <EditorProvider moveNode={moveNode}>
+        <Editor
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          hovering={hovering}
+          setHovering={setHovering}
+        />
+      </EditorProvider>
+    </SimulationProvider>
   )
 }
 
 interface EditorProps {
-  placed: Placed[]
-  setPlaced: React.Dispatch<React.SetStateAction<Placed[]>>
   selectedId: string | null
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>
   hovering: boolean
   setHovering: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-function Editor({
-  placed,
-  setPlaced,
-  selectedId,
-  setSelectedId,
-  hovering,
-  setHovering,
-}: EditorProps) {
+function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProps) {
   const { frameBodies } = useEditor()
+  const { nodes } = useGraph()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
+  const [menu, setMenu] = useState<{ at: MenuAt; node: GraphNode } | null>(null)
   const dockedCards = useRef(new Map<string, HTMLDivElement | null>())
   const moveDocked = useCallback((id: string, x: number, y: number) => {
     setDocked((items) => items.map((item) => (item.id === id ? { ...item, x, y } : item)))
   }, [])
 
+  const dock = useCallback((payload: GraphPayload, x = GRID, y = GRID) => {
+    const snap = (v: number) => Math.round(v / GRID) * GRID
+    setDocked((items) => {
+      const taken = new Set(items.map((i) => `${i.x},${i.y}`))
+      let px = snap(x)
+      while (taken.has(`${px},${snap(y)}`)) px += CARD_W
+      return [...items, { id: crypto.randomUUID(), nodeId: payload.nodeId, metric: payload.metric, name: payload.name, color: payload.color, x: px, y: snap(y) }]
+    })
+  }, [])
+
   const onGraphDrop = (e: DragEvent<HTMLDivElement>) => {
-    const raw = e.dataTransfer.getData("text/graph")
+    const raw = e.dataTransfer.getData(GRAPH_MIME)
     if (!raw) return
 
     e.preventDefault()
     e.stopPropagation()
 
-    const payload = JSON.parse(raw) as { data: ChartDataItem[]; color?: string }
+    const payload = JSON.parse(raw) as GraphPayload
     const rect = e.currentTarget.getBoundingClientRect()
-    const snap = (v: number) => Math.round(v / GRID) * GRID
-
-    setDocked((items) => [
-      ...items,
-      {
-        id: crypto.randomUUID(),
-        data: payload.data,
-        color: payload.color,
-        x: snap(e.clientX - rect.left - CARD_W / 2),
-        y: snap(e.clientY - rect.top - 40),
-      },
-    ])
+    dock(payload, e.clientX - rect.left - CARD_W / 2, e.clientY - rect.top - 40)
   }
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return
-    setPlaced((nodes) => nodes.filter(({ id }) => id !== selectedId))
+    graphStore.removeNode(selectedId)
     setSelectedId(null)
-  }, [selectedId, setPlaced, setSelectedId])
+  }, [selectedId, setSelectedId])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -225,6 +196,32 @@ function Editor({
     }
   }, [deleteSelected])
 
+  const onBoardContextMenu = useCallback(
+    (e: ReactMouseEvent) => {
+      const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
+      const id = island?.dataset.islandId
+      const node = id ? graphStore.get().nodes.find((n) => n.id === id) : undefined
+      if (!node) return
+      e.preventDefault()
+      setSelectedId(node.id)
+      setMenu({ at: { x: e.clientX, y: e.clientY }, node })
+    },
+    [setSelectedId],
+  )
+
+  const menuItems = (node: GraphNode): MenuItem[] => {
+    const payload = (metric: Metric): GraphPayload => ({ nodeId: node.id, metric, name: node.service, color: SERVICE_COLORS[node.service] })
+    return [
+      { label: "Add to graph menu", icon: <ChartLineIcon />, onSelect: () => dock(payload(Metric.Served)) },
+      {
+        label: "Detailed graph",
+        icon: <SquaresFourIcon />,
+        onSelect: () => (Object.keys(METRICS) as Metric[]).forEach((metric, i) => dock(payload(metric), GRID + i * CARD_W)),
+      },
+      { label: "Delete", icon: <TrashIcon />, danger: true, onSelect: () => graphStore.removeNode(node.id) },
+    ]
+  }
+
   const onSelectPointerDown = useCallback(
     (e: ReactPointerEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
@@ -233,8 +230,8 @@ function Editor({
     [setSelectedId],
   )
 
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, id: string, service?: ServiceType) => {
-    e.dataTransfer.setData("text/service", id)
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, service: ServiceType) => {
+    e.dataTransfer.setData("text/service", service)
     e.dataTransfer.effectAllowed = "copy"
     const ghostContainer = document.createElement("div")
     ghostContainer.style.position = "absolute"
@@ -242,9 +239,17 @@ function Editor({
     ghostContainer.style.left = "-9999px"
     ghostContainer.style.pointerEvents = "none"
     document.body.appendChild(ghostContainer)
-    const Ghost = service ? SERVICES[service] : () => <Frame name="Region" style={{ width: REGION_SIZE, height: 240 }} />
+    const icon = PALETTE.find((item) => item.service === service)?.icon
     const root = createRoot(ghostContainer)
-    root.render(<Ghost />)
+    root.render(
+      <div
+        style={{ backgroundColor: SERVICE_COLORS[service] }}
+        className="flex items-center gap-2 px-4 py-1 text-xl text-white border border-border"
+      >
+        {icon && <img src={icon} alt="" className="size-6" />}
+        {service}
+      </div>,
+    )
     setTimeout(() => {
       e.dataTransfer.setDragImage(ghostContainer, 32, 32)
       setTimeout(() => {
@@ -257,56 +262,38 @@ function Editor({
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setHovering(false)
-    const id = e.dataTransfer.getData("text/service")
-    if (!PALETTE.some((item) => item.id === id)) return
-    const rect = e.currentTarget.getBoundingClientRect()
+    const service = e.dataTransfer.getData("text/service")
+    if (!isService(service)) return
+    const board = e.currentTarget
+    const rect = board.getBoundingClientRect()
+    const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
     const frame = document
       .elementsFromPoint(e.clientX, e.clientY)
       .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
       .find(Boolean)
 
     const parentId = frame?.dataset.frame ?? null
+    const x = parentId ? 0 : (e.clientX - rect.left) / scale - 32
+    const y = parentId ? 0 : (e.clientY - rect.top) / scale - 32
 
-    let x = 0
-    let y = 0
-
-    if (!parentId) {
-      x = e.clientX - rect.left - 32
-      y = e.clientY - rect.top - 32
-    }
-
-    setPlaced((nodes) => [
-      ...nodes,
-      {
-        id: crypto.randomUUID(),
-        paletteId: id,
-        x,
-        y,
-        parentId,
-      },
-    ])
+    graphStore.addNode(service, { x, y }, parentId)
   }
 
-  const renderPlacedNode = (node: Placed) => {
-    const Service: ComponentType<NodeComponentProps> =
-      node.paletteId in SERVICES ? SERVICES[node.paletteId as ServiceType] : () => <Frame name="Region" style={{ width: REGION_SIZE }} />
+  const renderPlacedNode = (node: GraphNode) => {
+    const Service = SERVICES[node.service]
+    const { x, y } = node.position ?? { x: 0, y: 0 }
 
     const content = (
-      <div
-        data-island-id={node.id}
-        style={{
-          boxShadow: selectedId === node.id ? SELECT_RING : undefined,
-        }}
-      >
+      <div data-island-id={node.id} data-selected={selectedId === node.id || undefined} className="contents">
         <Service
           id={node.id}
-          style={node.parentId === null || !node.service ? at(node.x, node.y) : undefined}
+          style={!node.parentId || node.service === ServiceType.Region ? at(x, y) : undefined}
         />
       </div>
     )
 
     if (!node.parentId) {
-      return <div key={node.id}>{content}</div>
+      return <div key={node.id} className="contents">{content}</div>
     }
 
     const body = frameBodies.get(node.parentId)
@@ -327,15 +314,15 @@ function Editor({
               <section className="h-full w-full p-4 flex flex-col gap-2 overflow-y-auto">
                 <div className="text-sm font-semibold mb-2 text-white">Services</div>
 
-                {PALETTE.map(({ id, label, icon, service }) => (
+                {PALETTE.map(({ service, icon }) => (
                   <div
-                    key={id}
+                    key={service}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, id, service)}
+                    onDragStart={(e) => handleDragStart(e, service)}
                     className={sidebarItem}
                   >
                     {icon && <img src={icon} alt="" className={sidebarIcon} />}
-                    {label}
+                    {service}
                   </div>
                 ))}
               </section>
@@ -343,38 +330,26 @@ function Editor({
 
             <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 
-            <Panel defaultSize="85%">
+            <Panel defaultSize="85%" className="relative">
+              <SimulationBar />
               <Viewport>
                 <div
                   data-island-board
                   onPointerDownCapture={onSelectPointerDown}
+                  onContextMenu={onBoardContextMenu}
                   onDragOver={(e) => {
+                    if (!e.dataTransfer.types.includes("text/service")) return
                     e.preventDefault()
-
                     e.dataTransfer.dropEffect = "copy"
-
                     setHovering(true)
                   }}
-                  onDragLeave={() => setHovering(false)}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) setHovering(false)
+                  }}
                   onDrop={onDrop}
                   className={board(hovering)}
                 >
-                  <EdgeLayer>
-                    <EC2 style={at(40, 40)} />
-                    <SQS style={at(340, 40)} />
-                    <ELB style={at(640, 40)} />
-                    <ASG n={8} style={at(940, 360)}>
-                      <EC2 />
-                    </ASG>
-                    <Aurora style={at(40, 360)} />
-                    <Cloudfront style={at(340, 360)} />
-                    <ELB style={at(640, 360)} />
-                    <Fargate style={at(40, 620)} />
-                    <Lambda style={at(340, 620)} />
-                    <Route53 style={at(640, 620)} />
-                    <S3 style={at(940, 40)} />
-                    {placed.map(renderPlacedNode)}
-                  </EdgeLayer>
+                  <EdgeLayer>{nodes.map(renderPlacedNode)}</EdgeLayer>
                 </div>
               </Viewport>
             </Panel>
@@ -387,15 +362,15 @@ function Editor({
           defaultSize="25%"
           minSize="0%"
           maxSize="40%"
-          className="bg-gray-50/5"
+          className="bg-gray-50/5 flex flex-col"
           onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes("text/graph")) return
+            if (!e.dataTransfer.types.includes(GRAPH_MIME)) return
             e.preventDefault()
             e.dataTransfer.dropEffect = "copy"
           }}
           onDrop={onGraphDrop}
         >
-          <section className="h-full w-full relative overflow-hidden p-4">
+          <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4">
             {docked.length === 0 && (
               <div className="h-full w-full grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
                 Drag a graph from a service to view the graphs here
@@ -407,6 +382,8 @@ function Editor({
           </section>
         </Panel>
       </Group>
+
+      {menu && <ContextMenu at={menu.at} items={menuItems(menu.node)} onClose={() => setMenu(null)} />}
     </div>
   )
 }

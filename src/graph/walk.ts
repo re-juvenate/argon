@@ -10,6 +10,7 @@ export interface NodeResult {
   throughput: ThroughputResult
   latency: LatencyResult
   drop: DropResult
+  state?: unknown
 }
 
 interface Bound {
@@ -65,14 +66,11 @@ export class Runtime {
     for (const node of order) {
       const b = this.bind(node)
       const inputs = inputsOf(graph, node.id)
-      const inputsMbps =
-        inputs.length === 0
-          ? [mbps(graph.defaults.sourceMbps)]
-          : inputs.map((e) => {
-              const up = tp.get(e.from) ?? this.last.get(e.from)?.throughput
-              const idx = outputsOf(graph, e.from).findIndex((o) => o.id === e.id)
-              return up?.outputsMbps[idx] ?? mbps(0)
-            })
+      const inputsMbps = inputs.map((e) => {
+        const up = tp.get(e.from) ?? this.last.get(e.from)?.throughput
+        const idx = outputsOf(graph, e.from).findIndex((o) => o.id === e.id)
+        return up?.outputsMbps[idx] ?? mbps(0)
+      })
       const avgBytes = sizeOf(inputs[0]?.avgBytes)
       tp.set(node.id, b.throughput({ inputsMbps, outputCount: outputsOf(graph, node.id).length, dt, tick, avgBytes }))
     }
@@ -82,12 +80,12 @@ export class Runtime {
       const b = this.bind(node)
       const inputs = inputsOf(graph, node.id)
       const outputs = outputsOf(graph, node.id)
-      const inputsMbps = inputs.length === 0 ? [mbps(graph.defaults.sourceMbps)] : inputs.map((e) => tp.get(e.from)!.outputsMbps[outputsOf(graph, e.from).findIndex((o) => o.id === e.id)] ?? mbps(0))
+      const inputsMbps = inputs.map((e) => tp.get(e.from)!.outputsMbps[outputsOf(graph, e.from).findIndex((o) => o.id === e.id)] ?? mbps(0))
       const downstream = outputs.map((e) => next.get(e.to) ?? this.last.get(e.to))
       const downstreamMs: Milliseconds[] = downstream.map((d) => d?.latency.tailMs ?? ms(0))
       const downstreamDrop: Ratio[] = downstream.map((d) => d?.drop.dropRate ?? ratio(0))
       const ctx = { inputsMbps, outputCount: outputs.length, dt, tick, avgBytes: sizeOf(inputs[0]?.avgBytes), downstreamMs, downstreamDrop }
-      next.set(node.id, { throughput: tp.get(node.id)!, latency: b.latency(ctx), drop: b.drop(ctx) })
+      next.set(node.id, { throughput: tp.get(node.id)!, latency: b.latency(ctx), drop: b.drop(ctx), state: b.state })
     }
     this.last = next
     return next

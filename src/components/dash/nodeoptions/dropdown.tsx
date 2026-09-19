@@ -9,11 +9,20 @@ export interface Option {
 interface BlenderDropdownProps {
   label?: string
   options?: Option[]
+  value?: string
 }
 
-export default function Dropdown({ label = "Options", options = [] }: BlenderDropdownProps) {
+export default function Dropdown({ label = "Options", options = [], value }: BlenderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedOption, setSelectedOption] = useState<Option | undefined>(options[0])
+  const [selectedOption, setSelectedOption] = useState<Option | undefined>(
+    () => options.find((o) => o.name === value) ?? options[0],
+  )
+
+  useEffect(() => {
+    if (value === undefined) return
+    const match = options.find((o) => o.name === value)
+    if (match) setSelectedOption(match)
+  }, [value, options])
   const [searchQuery, setSearchQuery] = useState("")
   const [openUp, setOpenUp] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)

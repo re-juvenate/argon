@@ -6,6 +6,7 @@ export interface SliderProps {
   min: number;
   max: number;
   defaultValue: number;
+  value?: number;
   step?: number;
   decimals?: number;
   onChange?: (value: number) => void;
@@ -16,11 +17,16 @@ export default function Slider({
   min,
   max,
   defaultValue,
+  value: controlled,
   step = 0.001,
   decimals = 3,
   onChange,
 }: SliderProps) {
-  const [value, setValue] = useState<number>(defaultValue);
+  const [value, setValue] = useState<number>(controlled ?? defaultValue);
+
+  useEffect(() => {
+    if (controlled !== undefined) setValue(controlled);
+  }, [controlled]);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);

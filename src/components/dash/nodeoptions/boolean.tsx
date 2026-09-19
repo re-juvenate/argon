@@ -1,18 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "cnfast";
 
 interface BlenderCheckboxProps {
   label?: string;
   defaultChecked?: boolean;
+  checked?: boolean;
   onChange?: (checked: boolean) => void;
 }
 
 export default function Boolean({
   label = "Boolean",
   defaultChecked = true,
+  checked,
   onChange,
 }: BlenderCheckboxProps) {
-  const [isChecked, setIsChecked] = useState<boolean>(defaultChecked);
+  const [isChecked, setIsChecked] = useState<boolean>(checked ?? defaultChecked);
+
+  useEffect(() => {
+    if (checked !== undefined) setIsChecked(checked);
+  }, [checked]);
 
   const handleToggle = () => {
     const nextState = !isChecked;

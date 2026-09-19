@@ -10,7 +10,7 @@ import { serviceIcon } from "../../icons";
 // Controls map onto the FargateConfig inputs of math/ecs/throughput:
 // vcpu, memGiB, tasks (sliders).
 const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [, patch, nodeId] = useNodeConfig<FargateConfig>(ServiceType.ECS, FARGATE_DEFAULTS, id);
+  const [config, patch, nodeId] = useNodeConfig<FargateConfig>(ServiceType.ECS, FARGATE_DEFAULTS, id);
 
   return (
     <Node
@@ -27,6 +27,7 @@ const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={0.25}
         decimals={2}
         defaultValue={FARGATE_DEFAULTS.vcpu}
+        value={config.vcpu}
         onChange={(vcpu) => patch({ vcpu })}
       />
       <Slider
@@ -36,6 +37,7 @@ const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={0.5}
         decimals={1}
         defaultValue={FARGATE_DEFAULTS.memGiB}
+        value={config.memGiB}
         onChange={(memGiB) => patch({ memGiB })}
       />
       <Slider
@@ -45,7 +47,38 @@ const Fargate = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={1}
         decimals={0}
         defaultValue={FARGATE_DEFAULTS.tasks}
+        value={config.tasks}
         onChange={(tasks) => patch({ tasks })}
+      />
+      <Slider
+        label="Min Tasks (0 = fixed)"
+        min={0}
+        max={200}
+        step={1}
+        decimals={0}
+        defaultValue={FARGATE_DEFAULTS.minTasks}
+        value={config.minTasks}
+        onChange={(minTasks) => patch({ minTasks })}
+      />
+      <Slider
+        label="Max Tasks (0 = fixed)"
+        min={0}
+        max={500}
+        step={1}
+        decimals={0}
+        defaultValue={FARGATE_DEFAULTS.maxTasks}
+        value={config.maxTasks}
+        onChange={(maxTasks) => patch({ maxTasks })}
+      />
+      <Slider
+        label="Target Utilization"
+        min={0.1}
+        max={1}
+        step={0.05}
+        decimals={2}
+        defaultValue={FARGATE_DEFAULTS.targetUtilization}
+        value={config.targetUtilization}
+        onChange={(targetUtilization) => patch({ targetUtilization })}
       />
     </Node>
   );

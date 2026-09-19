@@ -85,11 +85,12 @@ const SQS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       name="SQS"
       visibleChildren={<Queue n={10} speed={2} state={true} />}
     >
-      <Dropdown label="Queue Type" options={queueOptions} />
+      <Dropdown label="Queue Type" options={queueOptions} value={config.queueType === QueueType.FIFO ? "FIFO" : "Standard"} />
       {config.queueType === QueueType.FIFO && (
         <Boolean
           label="High Throughput"
           defaultChecked={SQS_DEFAULTS.highThroughput}
+          checked={config.highThroughput}
           onChange={(highThroughput) => patch({ highThroughput })}
         />
       )}

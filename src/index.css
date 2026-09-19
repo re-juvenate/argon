@@ -7,3 +7,7 @@
   --color-border: #444444;
   --color-blueprimary: #477cb9;
 }
+
+[data-selected] > [data-id] {
+  box-shadow: 0 0 0 2px var(--color-blueprimary);
+}

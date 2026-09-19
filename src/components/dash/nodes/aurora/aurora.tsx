@@ -13,7 +13,7 @@ import { serviceIcon } from "../../icons";
 // instanceClass (dropdown), maxAcu (slider, > 0 overrides the class),
 // readers (slider). Selections here are the wiring point for the model.
 const Aurora = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [, patch, nodeId] = useNodeConfig<AuroraConfig>(ServiceType.Aurora, AURORA_DEFAULTS, id);
+  const [config, patch, nodeId] = useNodeConfig<AuroraConfig>(ServiceType.Aurora, AURORA_DEFAULTS, id);
 
   // Default class first so the Dropdown's initial display matches AURORA_DEFAULTS.
   const classNames = [
@@ -33,7 +33,17 @@ const Aurora = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("aurora.svg")}
       style={style}
     >
-      <Dropdown label="Instance Class" options={classOptions} />
+      <Dropdown label="Instance Class" options={classOptions} value={config.instanceClass} />
+      <Slider
+        label="Serverless Min ACU"
+        min={0.5}
+        max={128}
+        step={0.5}
+        decimals={1}
+        defaultValue={AURORA_DEFAULTS.minAcu}
+        value={config.minAcu}
+        onChange={(minAcu) => patch({ minAcu })}
+      />
       <Slider
         label="Serverless Max ACU"
         min={0}
@@ -41,6 +51,7 @@ const Aurora = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={1}
         decimals={0}
         defaultValue={AURORA_DEFAULTS.maxAcu}
+        value={config.maxAcu}
         onChange={(maxAcu) => patch({ maxAcu })}
       />
       <Slider
@@ -50,6 +61,7 @@ const Aurora = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         step={1}
         decimals={0}
         defaultValue={AURORA_DEFAULTS.readers}
+        value={config.readers}
         onChange={(readers) => patch({ readers })}
       />
     </Node>

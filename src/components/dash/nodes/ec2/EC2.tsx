@@ -14,7 +14,7 @@ import { serviceIcon } from "../../icons";
 // and plan. Options come from the node's enums; their values are the AWS
 // identifiers the model resolves.
 const EC2 = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [, patch, nodeId] = useNodeConfig<EC2Config>(ServiceType.EC2, EC2_DEFAULTS, id);
+  const [config, patch, nodeId] = useNodeConfig<EC2Config>(ServiceType.EC2, EC2_DEFAULTS, id);
 
   // Default instance type first so the Dropdown's initial display matches EC2_DEFAULTS.
   const instanceTypes = [
@@ -42,8 +42,8 @@ const EC2 = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("ec2.svg")}
       style={style}
     >
-      <Dropdown label="Instance Type" options={instanceOptions} />
-      <Dropdown label="Purchasing Plan" options={planOptions} />
+      <Dropdown label="Instance Type" options={instanceOptions} value={config.instanceType} />
+      <Dropdown label="Purchasing Plan" options={planOptions} value={config.plan} />
     </Node>
   );
 };

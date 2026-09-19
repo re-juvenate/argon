@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react"
+import { useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
 import { Socket } from "./Edge"
 import { SparkAreaChart } from "@tremor/react"
-import { graphStore } from "#graph"
 import { SocketType } from "../../types/nodes"
+import Stats, { sparkData, startGraphDrag } from "./Stats"
+import { Metric } from "./metrics"
+import { useNodeResult } from "./Simulation"
+
+const BOTH_SOCKETS = [SocketType.Input, SocketType.Output]
 
 interface NodeProps {
   name: string
@@ -15,15 +19,12 @@ interface NodeProps {
   cost?: number
   style?: CSSProperties
   id?: string
+  sockets?: SocketType[]
+  draggable?: boolean
   selected?: boolean
   onSelect?: () => void
   visibleChildren?: ReactNode
   children?: ReactNode
-}
-
-interface GraphPayload {
-  data: unknown[]
-  color: string
 }
 
 export default function Node({
@@ -34,6 +35,8 @@ export default function Node({
   cost,
   style,
   id,
+  sockets = BOTH_SOCKETS,
+  draggable = true,
   selected,
   onSelect,
   visibleChildren,
@@ -41,17 +44,14 @@ export default function Node({
 }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
+  const { result, history } = useNodeResult(id)
+  const series = graph ?? (history.length > 1 ? sparkData(history) : undefined)
 
   const islandRef = useIsland<HTMLDivElement>({
     flow: true,
     handle: headerRef,
+    enabled: draggable,
   })
-
-  useEffect(() => {
-    if (id && typeof style?.left === "number" && typeof style?.top === "number") {
-      graphStore.setPosition(id, { x: style.left, y: style.top })
-    }
-  }, [id, style?.left, style?.top])
 
   return (
     <div
@@ -80,6 +80,7 @@ export default function Node({
           backgroundColor: color,
         }}
         className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-4"
+        onDragStart={(e) => e.preventDefault()}
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <div className="div flex items-center justify-between gap-2">
@@ -95,18 +96,16 @@ export default function Node({
       </div>
 
       <div className="flex flex-col px-2 flex-1 gap-2">
-        {graph && (
+        <Stats result={result} nodeId={id} name={name} color={color} />
+
+        {series && (
           <div
-            draggable
-            onDragStart={(e: DragEvent) => {
-              const payload: GraphPayload = { data: graph, color }
-              e.dataTransfer.setData("text/graph", JSON.stringify(payload))
-              e.dataTransfer.effectAllowed = "copy"
-            }}
+            draggable={!!id}
+            onDragStart={(e) => id && startGraphDrag(e, { nodeId: id, metric: Metric.Served, name, color })}
             className="cursor-grab active:cursor-grabbing"
           >
             <SparkAreaChart
-              data={graph}
+              data={series}
               index="date"
               categories={["Semi"]}
               colors={["emerald"]}
@@ -133,8 +132,9 @@ export default function Node({
         )}
       </div>
 
-      <Socket type={SocketType.Input} />
-      <Socket type={SocketType.Output} />
+      {sockets.map((type) => (
+        <Socket key={type} type={type} />
+      ))}
     </div>
   )
 }

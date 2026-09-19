@@ -12,19 +12,48 @@ export function updateNode(graph: Graph, id: string, patch: Partial<Omit<GraphNo
   return { ...graph, nodes: graph.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }
 }
 
+const hasField = (service: ServiceType, field: string): boolean => field in THROUGHPUT_MODELS[service].defaults
+
+function inheritRegion(graph: Graph, id: string, code: unknown): Graph {
+  const node = nodeById(graph, id)
+  if (!node || !hasField(node.service, "region")) return graph
+  return updateNode(graph, id, { config: { ...node.config, region: code } })
+}
+
 export function setConfig(graph: Graph, id: string, config: Record<string, unknown>): Graph {
-  return updateNode(graph, id, { config })
+  const next = updateNode(graph, id, { config })
+  const node = nodeById(graph, id)
+  if (node?.service !== ServiceType.Region) return next
+  return childrenOf(next, id).reduce((g, child) => inheritRegion(g, child.id, config.code), next)
 }
 
 export function setPosition(graph: Graph, id: string, position: Position): Graph {
   return updateNode(graph, id, { position })
 }
 
+export function setParent(graph: Graph, id: string, parentId: string | null): Graph {
+  const parent = parentId === null ? undefined : nodeById(graph, parentId)
+  if (parentId !== null && (parentId === id || !parent)) return graph
+  const next = updateNode(graph, id, { parentId: parentId ?? undefined })
+  return parent?.service === ServiceType.Region ? inheritRegion(next, id, parent.config.code) : next
+}
+
+export function place(graph: Graph, id: string, position: Position, parentId: string | null): Graph {
+  return setParent(setPosition(graph, id, position), id, parentId)
+}
+
+export const childrenOf = (graph: Graph, id: string): GraphNode[] => graph.nodes.filter((n) => n.parentId === id)
+
 export function removeNode(graph: Graph, id: string): Graph {
+  const gone = new Set<string>([id])
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const n of graph.nodes) if (n.parentId && gone.has(n.parentId) && !gone.has(n.id)) grew = gone.add(n.id) !== undefined
+  }
   return {
     ...graph,
-    nodes: graph.nodes.filter((n) => n.id !== id),
-    edges: graph.edges.filter((e) => e.from !== id && e.to !== id),
+    nodes: graph.nodes.filter((n) => !gone.has(n.id)),
+    edges: graph.edges.filter((e) => !gone.has(e.from) && !gone.has(e.to)),
   }
 }
 
@@ -35,6 +64,10 @@ export function connect(graph: Graph, from: string, to: string, id = crypto.rand
   if (from === to || hasEdge(graph, from, to)) return graph
   if (!graph.nodes.some((n) => n.id === from) || !graph.nodes.some((n) => n.id === to)) return graph
   return { ...graph, edges: [...graph.edges, { id, from, to }] }
+}
+
+export function updateEdge(graph: Graph, id: string, patch: Partial<Omit<GraphEdge, "id">>): Graph {
+  return { ...graph, edges: graph.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
 }
 
 export function removeEdge(graph: Graph, id: string): Graph {

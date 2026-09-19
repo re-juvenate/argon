@@ -31,6 +31,8 @@ export enum ServiceType {
   CloudFront = "cloudfront",
   Route53 = "route53",
   Aurora = "aurora",
+  Client = "client",
+  Region = "region",
 }
 
 export interface ThroughputContext {

@@ -11,6 +11,7 @@ export interface GraphNode {
   service: ServiceType
   config: Record<string, unknown>
   position?: Position
+  parentId?: string
 }
 
 export interface GraphEdge {
@@ -22,7 +23,6 @@ export interface GraphEdge {
 
 export interface GlobalDefaults {
   dtSeconds: number
-  sourceMbps: number
   avgBytes?: number
 }
 
@@ -33,7 +33,7 @@ export interface Graph {
   edges: GraphEdge[]
 }
 
-export const GLOBAL_DEFAULTS: GlobalDefaults = { dtSeconds: 1, sourceMbps: 100 }
+export const GLOBAL_DEFAULTS: GlobalDefaults = { dtSeconds: 1 }
 
 export const emptyGraph = (defaults: Partial<GlobalDefaults> = {}): Graph => ({
   version: 1,
@@ -49,6 +49,7 @@ export const graphNodeSchema = z.object({
   service: z.enum(ServiceType),
   config: z.record(z.string(), z.unknown()).default({}),
   position: positionSchema.optional(),
+  parentId: z.string().min(1).optional(),
 })
 
 export const graphEdgeSchema = z.object({
@@ -60,7 +61,6 @@ export const graphEdgeSchema = z.object({
 
 export const globalDefaultsSchema = z.object({
   dtSeconds: z.number().positive().default(GLOBAL_DEFAULTS.dtSeconds),
-  sourceMbps: z.number().nonnegative().default(GLOBAL_DEFAULTS.sourceMbps),
   avgBytes: z.number().positive().optional(),
 })
 

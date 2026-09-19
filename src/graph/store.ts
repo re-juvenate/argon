@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import type { ServiceType } from "../types/math"
 import * as ops from "./graph"
+import { THROUGHPUT_MODELS } from "../math/simulate"
 import { emptyGraph, type GlobalDefaults, type Graph, type Position } from "./types"
 import { Runtime, type NodeResult } from "./walk"
 
@@ -27,17 +28,25 @@ class GraphStore {
   reset = (defaults?: Partial<GlobalDefaults>) => this.set(emptyGraph(defaults))
   setDefaults = (patch: Partial<GlobalDefaults>) => this.set(ops.setDefaults(this.graph, patch))
 
-  registerNode = (id: string, service: ServiceType, config: Record<string, unknown>, position?: Position) => {
+  registerNode = (id: string, service: ServiceType, config: Record<string, unknown>, position?: Position, parentId?: string) => {
     const existing = ops.nodeById(this.graph, id)
-    if (!existing) return this.set(ops.addNode(this.graph, { id, service, config, position }))
+    if (!existing) return this.set(ops.addNode(this.graph, { id, service, config, position, parentId }))
     if (position) this.set(ops.setPosition(this.graph, id, position))
   }
   setConfig = (id: string, config: Record<string, unknown>) => this.set(ops.setConfig(this.graph, id, config))
   setPosition = (id: string, position: Position) => this.set(ops.setPosition(this.graph, id, position))
+  setParent = (id: string, parentId: string | null) => this.set(ops.setParent(this.graph, id, parentId))
+  place = (id: string, position: Position, parentId: string | null) => this.set(ops.place(this.graph, id, position, parentId))
+  addNode = (service: ServiceType, position: Position, parentId: string | null, id = crypto.randomUUID()) => {
+    const config = { ...THROUGHPUT_MODELS[service].defaults } as Record<string, unknown>
+    this.set(ops.place(ops.addNode(this.graph, { id, service, config, position }), id, position, parentId))
+    return id
+  }
   removeNode = (id: string) => this.set(ops.removeNode(this.graph, id))
 
   connect = (from: string, to: string) => this.set(ops.connect(this.graph, from, to))
   removeEdge = (id: string) => this.set(ops.removeEdge(this.graph, id))
+  setEdgeBytes = (id: string, avgBytes: number | undefined) => this.set(ops.updateEdge(this.graph, id, { avgBytes }))
 
   toJSON = () => ops.toJSON(this.graph)
   fromJSON = (json: string) => this.set(ops.fromJSON(json))
@@ -53,10 +62,7 @@ export function useNodeConfig<C extends object>(service: ServiceType, defaults: 
   const graph = useGraph()
   const node = graph.nodes.find((n) => n.id === nodeId)
   const config = useMemo(() => (node?.config as C | undefined) ?? (defaults as C), [node?.config, defaults])
-  useEffect(() => {
-    graphStore.registerNode(nodeId, service, defaults)
-    return () => graphStore.removeNode(nodeId)
-  }, [nodeId, service, defaults])
+  useEffect(() => graphStore.registerNode(nodeId, service, defaults), [nodeId, service, defaults])
   const update = useCallback(
     (patch: Partial<C>) => {
       const current = (graphStore.get().nodes.find((n) => n.id === nodeId)?.config as C | undefined) ?? defaults

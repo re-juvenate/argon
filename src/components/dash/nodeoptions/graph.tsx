@@ -12,6 +12,8 @@ interface GraphProps {
   /** Stretch to fill the parent box instead of using the intrinsic size. */
   fill?: boolean
   color?: string
+  title?: string
+  unit?: string
 }
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -33,7 +35,7 @@ function formatChange(payload: any, percentageChange: number, absoluteChange: nu
   return `${formattedPercentage} (${formattedAbsolute})`
 }
 
-export default function Graph({ chartdata = [], fill = false, color = "#693cc5" }: GraphProps) {
+export default function Graph({ chartdata = [], fill = false, color = "#693cc5", title = "Throughput", unit = "" }: GraphProps) {
   const [hoverData, setHoverData] = useState<any>(null)
 
   const maxItem = useMemo(() => {
@@ -82,12 +84,15 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
       )}
     >
       <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
-        Throughput{" "}
+        {title}{" "}
         {!payload && (
           <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>
         )}
       </p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-white">{displayValue}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-white">
+        {displayValue}
+        {unit && <span className="ml-1 text-base font-medium text-neutral-400">{unit}</span>}
+      </p>
       <p className="mt-1 flex items-baseline justify-between">
         <span className="text-sm text-neutral-400">On {displayDate}</span>
         <span
@@ -100,7 +105,7 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5" 
                 : "text-red-400 bg-red-950/40",
           )}
         >
-          {payload ? formatChange(payload, percentageChange, absoluteChange) : "Max Throughput"}
+          {payload ? formatChange(payload, percentageChange, absoluteChange) : `Max ${title}`}
         </span>
       </p>
 

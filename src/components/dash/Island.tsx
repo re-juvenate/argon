@@ -20,11 +20,13 @@ const overlapArea = (a: DOMRect, b: DOMRect) =>
 interface IslandOptions {
   handle?: RefObject<HTMLElement | null>
   flow?: boolean
+  enabled?: boolean
 }
 
 export const useIsland = <T extends HTMLElement = HTMLDivElement>({
   handle,
   flow = false,
+  enabled = true,
 }: IslandOptions = {}) => {
   const ref = useRef<T | null>(null)
   const { moveNode } = useEditor()
@@ -32,13 +34,15 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
   useGSAP(
     () => {
       const el = ref.current
-      if (!el) return
+      if (!el || !enabled) return
 
       const board = el.closest<HTMLElement>("[data-island-board]")
 
       if (!board) return
 
-      if (!flow || el.parentElement === board) {
+      const host = el.parentElement?.closest<HTMLElement>(":not(.contents)")
+
+      if (!flow || host === board) {
         el.style.position = "absolute"
       }
 
@@ -54,7 +58,7 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         for (const element of elements) {
           const frame = element.closest<HTMLElement>("[data-frame]")
 
-          if (!frame) continue
+          if (!frame || el.contains(frame)) continue
 
           const body = frame.querySelector<HTMLElement>(":scope > [data-frame-body]")
 
@@ -82,6 +86,9 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         // The board lives inside a pannable/zoomable viewport: rect deltas are
         // screen pixels, but x/y are board-local. Divide by the board's scale.
         const scale = board.offsetWidth > 0 ? boardRect.width / board.offsetWidth : 1
+        const css = getComputedStyle(el)
+        const marginX = parseFloat(css.marginLeft) || 0
+        const marginY = parseFloat(css.marginTop) || 0
 
         const ownFrame = el.closest<HTMLElement>("[data-frame]")
 
@@ -105,20 +112,20 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
           }
 
           if (parentId === null) {
-            x = (rect.left - boardRect.left) / scale
-            y = (rect.top - boardRect.top) / scale
+            x = (rect.left - boardRect.left) / scale - marginX
+            y = (rect.top - boardRect.top) / scale - marginY
           }
         } else {
           parentId = hit?.frame.dataset.frame ?? null
 
           if (parentId === null || !hit) {
-            x = (rect.left - boardRect.left) / scale
-            y = (rect.top - boardRect.top) / scale
+            x = (rect.left - boardRect.left) / scale - marginX
+            y = (rect.top - boardRect.top) / scale - marginY
           } else {
             const bodyRect = hit.body.getBoundingClientRect()
 
-            x = rect.left - bodyRect.left
-            y = rect.top - bodyRect.top
+            x = (rect.left - bodyRect.left) / scale - marginX
+            y = (rect.top - bodyRect.top) / scale - marginY
           }
         }
 
@@ -166,7 +173,7 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
     },
     {
       scope: ref,
-      dependencies: [handle, flow, moveNode],
+      dependencies: [handle, flow, enabled, moveNode],
     },
   )
 

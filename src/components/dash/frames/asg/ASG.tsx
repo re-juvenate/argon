@@ -1,36 +1,44 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import Frame from "../../Frame";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useGSAP } from "@gsap/react"
+import gsap from "gsap"
+import Frame from "../../Frame"
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP)
 
-const ASG = ({ n, style, children }: { n: number; style?: CSSProperties; children: ReactNode }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [instances, setInstances] = useState<string[]>([]);
-  const prevN = useRef(n);
+const ASG = ({
+  n,
+  style,
+  children,
+}: {
+  n: number
+  style?: CSSProperties
+  children?: ReactNode
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [instances, setInstances] = useState<string[]>([])
+  const prevN = useRef(n)
 
   useEffect(() => {
     setInstances((prev) => {
       if (n > prev.length) {
-        return [...prev, ...Array.from({ length: n - prev.length }, () => crypto.randomUUID())];
+        return [...prev, ...Array.from({ length: n - prev.length }, () => crypto.randomUUID())]
       }
 
-      return prev;
-    });
-  }, [n]);
+      return prev
+    })
+  }, [n])
 
   useGSAP(
     () => {
-      const elements = containerRef.current?.querySelectorAll(".itemmmmy");
-      if (!elements) return;
+      const elements = containerRef.current?.querySelectorAll(".itemmmmy")
+      if (!elements) return
 
-      const previous = prevN.current;
-      const current = Array.from(elements);
+      const previous = prevN.current
+      const current = Array.from(elements)
 
       // INCREMENT
       if (n > previous) {
-        const added = current.slice(previous);
+        const added = current.slice(previous)
 
         gsap.fromTo(
           added,
@@ -45,28 +53,28 @@ const ASG = ({ n, style, children }: { n: number; style?: CSSProperties; childre
             stagger: 0.05,
             ease: "power2.out",
           },
-        );
+        )
       }
 
-      prevN.current = n;
+      prevN.current = n
     },
     {
       dependencies: [instances],
       scope: containerRef,
     },
-  );
+  )
 
   useGSAP(
     () => {
-      if (n >= prevN.current) return;
-      const elements = containerRef.current?.querySelectorAll(".itemmmmy");
-      if (!elements) return;
+      if (n >= prevN.current) return
+      const elements = containerRef.current?.querySelectorAll(".itemmmmy")
+      if (!elements) return
 
-      const current = Array.from(elements);
-      const count = prevN.current - n;
-      const top = current.slice(0, Math.ceil(count / 2));
-      const bottom = current.slice(-Math.floor(count / 2));
-      const removed = [...top, ...bottom];
+      const current = Array.from(elements)
+      const count = prevN.current - n
+      const top = current.slice(0, Math.ceil(count / 2))
+      const bottom = current.slice(-Math.floor(count / 2))
+      const removed = [...top, ...bottom]
 
       gsap.to(removed, {
         scale: 0,
@@ -75,19 +83,19 @@ const ASG = ({ n, style, children }: { n: number; style?: CSSProperties; childre
         stagger: 0.05,
         ease: "power2.in",
         onComplete: () => {
-          const removeIds = new Set(removed.map((el) => el.getAttribute("data-id")));
+          const removeIds = new Set(removed.map((el) => el.getAttribute("data-id")))
 
-          setInstances((prev) => prev.filter((id) => !removeIds.has(id)));
+          setInstances((prev) => prev.filter((id) => !removeIds.has(id)))
 
-          prevN.current = n;
+          prevN.current = n
         },
-      });
+      })
     },
     {
       dependencies: [n],
       scope: containerRef,
     },
-  );
+  )
 
   return (
     <div ref={containerRef}>
@@ -99,7 +107,7 @@ const ASG = ({ n, style, children }: { n: number; style?: CSSProperties; childre
         ))}
       </Frame>
     </div>
-  );
-};
+  )
+}
 
-export default ASG;
+export default ASG

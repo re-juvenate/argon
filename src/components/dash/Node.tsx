@@ -1,32 +1,53 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr";
-import { useIsland } from "./Island";
-import { Socket } from "./Edge";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
+import clsx from "clsx"
+import { useIsland } from "./Island"
+import { Socket } from "./Edge"
 
 interface NodeProps {
-  name: string;
-  color: string;
-  style?: CSSProperties;
-  visibleChildren?: ReactNode;
-  children?: ReactNode;
+  name: string
+  color: string
+  style?: CSSProperties
+  id?: string
+  selected?: boolean
+  onSelect?: () => void
+  visibleChildren?: ReactNode
+  children?: ReactNode
 }
 
-const Node = ({ name, color, style, visibleChildren, children }: NodeProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const islandRef = useIsland<HTMLDivElement>({ flow: true, handle: headerRef });
+export default function Node({
+  name,
+  color,
+  style,
+  id,
+  selected,
+  onSelect,
+  visibleChildren,
+  children,
+}: NodeProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const islandRef = useIsland<HTMLDivElement>({ flow: true, handle: headerRef })
 
   return (
     <div
       ref={islandRef}
       style={style}
-      className="w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2 relative"
+      data-id={id}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onSelect?.()
+      }}
+      className={clsx(
+        "w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2 relative",
+        selected && "ring-2 ring-blueprimary",
+      )}
     >
       <div
         ref={headerRef}
         style={{ backgroundColor: color }}
         className="text-xl py-1 px-4 cursor-pointer select-none hover:opacity-90 flex items-center justify-between gap-2"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((prev) => !prev)}
       >
         <span>{name}</span>
         {children && (
@@ -36,11 +57,9 @@ const Node = ({ name, color, style, visibleChildren, children }: NodeProps) => {
 
       <div className="flex flex-col px-2 flex-1 gap-2">
         {visibleChildren}
-        {children && (isOpen ? <div className="flex flex-col gap-2">{children}</div> : null)}
+        {children && isOpen && <div className="flex flex-col gap-2">{children}</div>}
       </div>
       <Socket />
     </div>
-  );
-};
-
-export default Node;
+  )
+}

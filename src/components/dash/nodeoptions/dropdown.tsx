@@ -15,6 +15,7 @@ export default function Dropdown({ label = "Options", options = [] }: BlenderDro
   const [isOpen, setIsOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<Option | undefined>(options[0])
   const [searchQuery, setSearchQuery] = useState("")
+  const [openUp, setOpenUp] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
@@ -36,6 +37,11 @@ export default function Dropdown({ label = "Options", options = [] }: BlenderDro
   useEffect(() => {
     if (isOpen) {
       searchInputRef.current?.focus()
+      const trigger = dropdownRef.current
+      if (trigger) {
+        const below = window.innerHeight - trigger.getBoundingClientRect().bottom
+        setOpenUp(below < 220)
+      }
     } else {
       setSearchQuery("")
     }
@@ -147,7 +153,10 @@ export default function Dropdown({ label = "Options", options = [] }: BlenderDro
           id={listboxId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 w-full mt-1 bg-[#181818] border border-[#101010] rounded shadow-2xl z-50 flex flex-col max-h-[50vh]"
+          className={cn(
+            "absolute left-0 w-full bg-[#181818] border border-[#101010] rounded shadow-2xl z-50 flex flex-col max-h-[50vh]",
+            openUp ? "bottom-full mb-1" : "top-full mt-1",
+          )}
         >
           <div className="flex flex-col border-b border-[#282828] p-1 gap-1 sticky top-0 bg-[#181818] z-10">
             <div className="px-2 py-0.5 text-xs font-sans text-[#666666] tracking-wide cursor-default">

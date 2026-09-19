@@ -48,6 +48,7 @@ import { SERVICE_COLORS } from "./colors"
 import { graphStore, useGraph } from "#graph"
 import { SimulationProvider } from "./Simulation"
 import SimulationBar from "./SimulationBar"
+import GraphIo from "./GraphIo"
 import type { GraphNode } from "#graph/types"
 
 const at = (left: number, top: number): CSSProperties => ({
@@ -346,7 +347,10 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
             <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 
             <Panel defaultSize="85%" className="relative">
-              <SimulationBar />
+              <div className="absolute right-4 top-4 z-50 flex flex-col gap-2">
+                <SimulationBar />
+                <GraphIo />
+              </div>
               <Viewport>
                 <div
                   data-island-board

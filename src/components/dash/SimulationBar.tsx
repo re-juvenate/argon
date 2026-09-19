@@ -22,7 +22,7 @@ export default function SimulationBar() {
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
-      className="absolute right-4 top-4 z-50 flex flex-col items-center gap-2 p-2 bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
+      className="flex flex-col items-center gap-2 p-2 bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
     >
       <button
         type="button"

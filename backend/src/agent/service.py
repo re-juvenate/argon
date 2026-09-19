@@ -1,4 +1,4 @@
-from backend.agent.schemas import AgentCreate, AgentRead
+from agent.schemas import AgentCreate, AgentRead
 
 
 class AgentService:

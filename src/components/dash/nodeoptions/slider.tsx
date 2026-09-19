@@ -25,6 +25,15 @@ export default function Slider({
   const [inputValue, setInputValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Widest text the value slot can ever show, so the node's w-fit sizing
+  // reserves room for it (same trick as the dropdown's width sizer):
+  // "-" for the sign, one extra decimal of padding, monospace keeps it exact.
+  const widestValue = useMemo(() => {
+    const bound = Math.max(Math.abs(min), Math.abs(max));
+    const widest = Math.max(bound + step, 1);
+    return `-${widest.toFixed(decimals + 1)}`;
+  }, [min, max, step, decimals]);
+
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -73,6 +82,16 @@ export default function Slider({
       className="relative flex items-center h-7 bg-[#2e2e2e] border border-[#151515] rounded overflow-hidden select-none group"
       onDoubleClick={handleEnableEditing}
     >
+      {/* Invisible in-flow sizer: label + widest value. Everything visible in
+          this row is absolutely positioned (zero intrinsic width), so without
+          this the node's w-fit sizing would never reserve room for either. */}
+      <div
+        aria-hidden
+        className="invisible h-0 overflow-hidden whitespace-nowrap flex justify-between gap-2 px-3 text-sm font-sans"
+      >
+        <span className="tracking-wide">{label}</span>
+        <span className="font-mono">{widestValue}</span>
+      </div>
       {!isEditing ? (
         <>
           <div
@@ -81,16 +100,8 @@ export default function Slider({
           />
 
           <div className="absolute inset-0 flex justify-between items-center px-3 text-sm text-[#e0e0e0] font-sans pointer-events-none z-10">
-            <span className="tracking-wide">{label}</span>
-            <span
-              className="font-mono cursor-text pointer-events-auto"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEnableEditing();
-              }}
-            >
-              {value.toFixed(decimals)}
-            </span>
+            <span className="tracking-wide whitespace-nowrap">{label}</span>
+            <span className="font-mono cursor-text pointer-events-auto">{value.toFixed(decimals)}</span>
           </div>
 
           <input

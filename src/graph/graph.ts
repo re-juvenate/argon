@@ -29,7 +29,7 @@ export function removeNode(graph: Graph, id: string): Graph {
 }
 
 export const hasEdge = (graph: Graph, from: string, to: string): boolean =>
-  graph.edges.some((e) => (e.from === from && e.to === to) || (e.from === to && e.to === from))
+  graph.edges.some((e) => e.from === from && e.to === to)
 
 export function connect(graph: Graph, from: string, to: string, id = crypto.randomUUID()): Graph {
   if (from === to || hasEdge(graph, from, to)) return graph

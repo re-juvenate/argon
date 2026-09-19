@@ -12,12 +12,14 @@ import {
 import { getBezierPath, Position } from "@xyflow/react";
 import cn from "cnfast";
 import { graphStore, useGraph } from "#graph";
+import { SocketType } from "../../types/nodes";
 
 const nodeIdOf = (el: HTMLElement): string | undefined => el.closest<HTMLElement>("[data-id]")?.dataset.id;
+const kindOf = (el: HTMLElement): SocketType | undefined => el.dataset.socket as SocketType | undefined;
 
 interface EdgeApi {
-  register: (el: HTMLElement) => void;
-  unregister: (el: HTMLElement) => void;
+  register: (el: HTMLElement, kind: SocketType) => void;
+  unregister: (el: HTMLElement, kind: SocketType) => void;
   grab: (el: HTMLElement) => void;
   pending: HTMLElement | null;
 }
@@ -36,25 +38,28 @@ const disconnected: SocketApi = {
   isPending: false,
 };
 
-export const useEdgeSocket = (): SocketApi => {
+export const useEdgeSocket = (kind: SocketType): SocketApi => {
   const api = useContext(EdgeCtx);
   const apiRef = useRef(api);
   const socketRef = useRef<HTMLElement | null>(null);
 
   apiRef.current = api;
 
-  const ref = useCallback((el: HTMLElement | null) => {
-    if (el) {
-      socketRef.current = el;
-      apiRef.current?.register(el);
-      return;
-    }
+  const ref = useCallback(
+    (el: HTMLElement | null) => {
+      if (el) {
+        socketRef.current = el;
+        apiRef.current?.register(el, kind);
+        return;
+      }
 
-    if (socketRef.current) {
-      apiRef.current?.unregister(socketRef.current);
-      socketRef.current = null;
-    }
-  }, []);
+      if (socketRef.current) {
+        apiRef.current?.unregister(socketRef.current, kind);
+        socketRef.current = null;
+      }
+    },
+    [kind],
+  );
 
   const grab = useCallback((e: ReactPointerEvent) => {
     e.stopPropagation();

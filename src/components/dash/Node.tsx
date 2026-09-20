@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
@@ -8,6 +8,7 @@ import { SocketType } from "../../types/nodes"
 import Stats, { sparkData, startGraphDrag } from "./Stats"
 import { Metric } from "./metrics"
 import { useNodeResult } from "./Simulation"
+import { graphStore, useGraph } from "#graph"
 
 const BOTH_SOCKETS = [SocketType.Input, SocketType.Output]
 const NO_SOCKETS: SocketType[] = []
@@ -46,11 +47,36 @@ export default function Node({
   children,
 }: NodeProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const editRef = useRef<HTMLInputElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
   const instance = useContext(InstanceCtx)
   const shown = instance ? NO_SOCKETS : sockets
   const { result, history } = useNodeResult(id)
+  const storedName = useGraph().nodes.find((n) => n.id === id)?.name
+  const shownName = storedName ?? name
   const series = graph ?? (history.length > 1 ? sparkData(history) : undefined)
+
+  const startEditing = () => {
+    if (!id) return
+    setDraft(shownName)
+    setEditing(true)
+  }
+
+  useEffect(() => {
+    if (!editing) return
+    editRef.current?.focus()
+    editRef.current?.select()
+  }, [editing])
+
+  const commitName = () => {
+    setEditing(false)
+    if (!id) return
+    const next = draft.trim()
+    if (next === shownName) return
+    graphStore.renameNode(id, next || undefined)
+  }
 
   const islandRef = useIsland<HTMLDivElement>({
     flow: true,
@@ -90,7 +116,26 @@ export default function Node({
       >
         <div className="div flex items-center justify-between gap-2">
           {icon && <img src={icon} alt="" className="size-6 shrink-0" draggable={false} />}
-          <span className="flex-1 text-left">{name}</span>
+          {editing ? (
+            <input
+              ref={editRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName()
+                if (e.key === "Escape") setEditing(false)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              className="flex-1 min-w-0 text-left bg-transparent outline-none border-b border-white/40 text-xl"
+            />
+          ) : (
+            <span className="flex-1 text-left cursor-text" onDoubleClick={startEditing}>
+              {shownName}
+            </span>
+          )}
         </div>
 
         {children && (
@@ -101,12 +146,12 @@ export default function Node({
       </div>
 
       <div className="flex flex-col px-2 flex-1 gap-2">
-        <Stats result={result} nodeId={id} name={name} color={color} />
+        <Stats result={result} nodeId={id} name={shownName} color={color} />
 
         {series && (
           <div
             draggable={!!id}
-            onDragStart={(e) => id && startGraphDrag(e, { nodeId: id, metric: Metric.Served, name, color })}
+            onDragStart={(e) => id && startGraphDrag(e, { nodeId: id, metric: Metric.Served, name: shownName, color })}
             className="cursor-grab active:cursor-grabbing"
           >
             <SparkAreaChart

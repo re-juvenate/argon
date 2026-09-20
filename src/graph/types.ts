@@ -9,6 +9,7 @@ export interface Position {
 export interface GraphNode {
   id: string
   service: ServiceType
+  name?: string
   config: Record<string, unknown>
   position?: Position
   parentId?: string
@@ -47,6 +48,7 @@ const positionSchema = z.object({ x: z.number(), y: z.number() })
 export const graphNodeSchema = z.object({
   id: z.string().min(1),
   service: z.enum(ServiceType),
+  name: z.string().min(1).optional(),
   config: z.record(z.string(), z.unknown()).default({}),
   position: positionSchema.optional(),
   parentId: z.string().min(1).optional(),

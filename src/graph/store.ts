@@ -34,6 +34,7 @@ class GraphStore {
     if (position) this.set(ops.setPosition(this.graph, id, position))
   }
   setConfig = (id: string, config: Record<string, unknown>) => this.set(ops.setConfig(this.graph, id, config))
+  renameNode = (id: string, name: string | undefined) => this.set(ops.updateNode(this.graph, id, { name: name?.trim() || undefined }))
   setPosition = (id: string, position: Position) => this.set(ops.setPosition(this.graph, id, position))
   setParent = (id: string, parentId: string | null) => this.set(ops.setParent(this.graph, id, parentId))
   place = (id: string, position: Position, parentId: string | null) => this.set(ops.place(this.graph, id, position, parentId))

@@ -24,7 +24,7 @@ import { InstanceCtx } from "./Node"
 import Viewport from "./Viewport"
 import { GRAPH_MIME, Metric, METRICS, type GraphPayload } from "./metrics"
 import ContextMenu, { type MenuAt, type MenuItem } from "./ContextMenu"
-import { ChartLineIcon, SquaresFourIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { ChartLineIcon, PencilSimpleIcon, SquaresFourIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
@@ -239,8 +239,18 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
   )
 
   const menuItems = (node: GraphNode): MenuItem[] => {
-    const payload = (metric: Metric): GraphPayload => ({ nodeId: node.id, metric, name: node.service, color: SERVICE_COLORS[node.service] })
+    const payload = (metric: Metric): GraphPayload => ({ nodeId: node.id, metric, name: node.name ?? node.service, color: SERVICE_COLORS[node.service] })
     return [
+      {
+        label: "Rename",
+        icon: <PencilSimpleIcon />,
+        input: {
+          type: "text",
+          value: node.name ?? node.service,
+          placeholder: node.service,
+          onCommit: (name) => graphStore.renameNode(node.id, name || undefined),
+        },
+      },
       { label: "Add to graph menu", icon: <ChartLineIcon />, onSelect: () => dock(payload(Metric.Served)) },
       {
         label: "Detailed graph",

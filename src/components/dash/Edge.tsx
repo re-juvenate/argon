@@ -400,7 +400,10 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
               input: {
                 value: menu.edge.avgBytes,
                 placeholder: "model",
-                onCommit: (avgBytes) => graphStore.setEdgeBytes(menu.edge.id, avgBytes && avgBytes > 0 ? avgBytes : undefined),
+                onCommit: (raw) => {
+                  const avgBytes = Number(raw)
+                  graphStore.setEdgeBytes(menu.edge.id, raw !== "" && Number.isFinite(avgBytes) && avgBytes > 0 ? avgBytes : undefined)
+                },
               },
             },
             { label: "Delete edge", icon: <TrashIcon />, danger: true, onSelect: () => graphStore.removeEdge(menu.edge.id) },

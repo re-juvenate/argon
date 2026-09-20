@@ -3,9 +3,10 @@ import { createPortal } from "react-dom"
 import clsx from "clsx"
 
 export interface MenuInput {
-  value?: number
+  value?: string | number
+  type?: "text" | "number"
   placeholder?: string
-  onCommit: (value: number | undefined) => void
+  onCommit: (value: string) => void
 }
 
 export interface MenuItem {
@@ -29,10 +30,7 @@ interface ContextMenuProps {
 
 const InputRow = ({ item, onClose }: { item: MenuItem & { input: MenuInput }; onClose: () => void }) => {
   const [value, setValue] = useState(item.input.value === undefined ? "" : String(item.input.value))
-  const commit = () => {
-    const n = Number(value)
-    item.input.onCommit(value.trim() === "" || !Number.isFinite(n) ? undefined : n)
-  }
+  const commit = () => item.input.onCommit(value.trim())
   return (
     <label className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs text-gray-200">
       <span className="flex items-center gap-2">
@@ -41,7 +39,7 @@ const InputRow = ({ item, onClose }: { item: MenuItem & { input: MenuInput }; on
       </span>
       <input
         autoFocus
-        type="number"
+        type={item.input.type ?? "number"}
         value={value}
         placeholder={item.input.placeholder}
         onChange={(e) => setValue(e.target.value)}

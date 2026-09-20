@@ -109,6 +109,7 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
   return createPortal(
     <div
       ref={menuRef}
+      data-add-menu
       style={{ left: pos?.left ?? at.x, top: pos?.top ?? at.y, visibility: pos ? "visible" : "hidden" }}
       onKeyDown={handleKey}
       className="fixed z-[9999] w-60 rounded bg-[#1c1c1c] border border-[#333] shadow-2xl shadow-black/70 py-1 select-none"

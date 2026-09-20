@@ -4,6 +4,9 @@ import clsx from "clsx"
 import { graphStore, useGraph } from "#graph"
 import { ApiError, complete, connect, currentSession } from "../../api/completion"
 import { CompletionDirector, fingerprintOf, Phase } from "../../api/director"
+import { installInteractionTracker, isInteracting } from "../../api/interaction"
+
+installInteractionTracker()
 
 const button = "grid size-10 place-items-center text-lg border border-border text-gray-200 transition-colors disabled:opacity-40 disabled:cursor-default"
 const idle = "bg-neutral-800 hover:bg-neutral-700"
@@ -13,7 +16,7 @@ const CONNECT_RETRY_MS = 2000
 
 export default function Completion() {
   const graph = useGraph()
-  const pending = graph.nodes.some((n) => n.suggested)
+  const pending = graph.nodes.some((n) => n.suggested) || graph.edges.some((e) => e.suggested || e.suggestedRemoval) || graphStore.hasSuggestion()
   const [prompt, setPrompt] = useState("")
   const [auto, setAuto] = useState(true)
   const [phase, setPhase] = useState<Phase>(Phase.Off)
@@ -52,13 +55,13 @@ export default function Completion() {
     const committed = graphStore.committed()
     const fp = fingerprintOf(committed)
     const now = Date.now()
-    if (!manual && !d.shouldFire({ now, fingerprint: fp, overlay: pending, enabled: auto, visible: document.visibilityState === "visible", session: connected })) return
+    if (!manual && !d.shouldFire({ now, fingerprint: fp, overlay: pending, enabled: auto, visible: document.visibilityState === "visible", session: connected, interacting: isInteracting(now) })) return
     if (manual && (busy || pending)) return
     d.begin(fp, now)
     setBusy(true)
     try {
       const result = await complete(committed, promptRef.current)
-      graphStore.suggest(result.added.nodes, result.added.edges)
+      graphStore.suggest(result.added)
       setRationale(result.rationale)
       d.succeed()
     } catch (e) {
@@ -77,10 +80,11 @@ export default function Completion() {
       const signals = {
         now: Date.now(),
         fingerprint: fingerprintOf(graphStore.committed()),
-        overlay: graphStore.get().nodes.some((n) => n.suggested),
+        overlay: graphStore.hasSuggestion(),
         enabled: auto,
         visible: document.visibilityState === "visible",
         session: currentSession() !== null,
+        interacting: isInteracting(),
       }
       setPhase(director.current.phase(signals))
       if (!signals.session) setConnected(false)

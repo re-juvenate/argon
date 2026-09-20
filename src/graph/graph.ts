@@ -1,7 +1,7 @@
 import { ServiceType } from "../types/math"
 import { THROUGHPUT_MODELS } from "../math/simulate"
 import { resolve } from "../math/utilities"
-import { graphSchema, type Graph, type GraphEdge, type GraphNode, type Position } from "./types"
+import { graphSchema, type Graph, type GraphEdge, type GraphNode, type Position, type Suggestion } from "./types"
 
 export function addNode(graph: Graph, node: GraphNode): Graph {
   if (graph.nodes.some((n) => n.id === node.id)) return updateNode(graph, node.id, node)
@@ -124,29 +124,49 @@ export function topoOrder(graph: Graph): { order: GraphNode[]; backEdges: GraphE
   return { order, backEdges }
 }
 
-export const committed = (graph: Graph): Graph =>
-  graph.nodes.some((n) => n.suggested) || graph.edges.some((e) => e.suggested)
-    ? { ...graph, nodes: graph.nodes.filter((n) => !n.suggested), edges: graph.edges.filter((e) => !e.suggested) }
-    : graph
+export type Originals = ReadonlyMap<string, Pick<GraphNode, "name" | "config" | "position">>
 
-export function suggest(graph: Graph, nodes: GraphNode[], edges: GraphEdge[]): Graph {
-  const base = committed(graph)
-  const ids = new Set(base.nodes.map((n) => n.id))
-  const fresh = nodes.filter((n) => !ids.has(n.id)).map((n) => ({ ...n, suggested: true }))
-  for (const n of fresh) ids.add(n.id)
-  const pairs = new Set(base.edges.map((e) => `${e.from}>${e.to}`))
-  const links = edges
+export const hasSuggestion = (graph: Graph, originals: Originals): boolean =>
+  originals.size > 0 || graph.nodes.some((n) => n.suggested) || graph.edges.some((e) => e.suggested || e.suggestedRemoval)
+
+export function committed(graph: Graph, originals: Originals): Graph {
+  if (!hasSuggestion(graph, originals)) return graph
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((n) => !n.suggested).map((n) => (originals.has(n.id) ? { ...n, ...originals.get(n.id) } : n)),
+    edges: graph.edges.filter((e) => !e.suggested).map((e) => (e.suggestedRemoval ? { ...e, suggestedRemoval: undefined } : e)),
+  }
+}
+
+export function suggest(graph: Graph, originals: Originals, s: Suggestion): { graph: Graph; originals: Originals } {
+  const base = committed(graph, originals)
+  const frames = new Set([ServiceType.ASG, ServiceType.Region, ServiceType.VPC])
+  const byId = new Map(base.nodes.map((n) => [n.id, n]))
+  const kept = new Map<string, Pick<GraphNode, "name" | "config" | "position">>()
+  const updated = base.nodes.map((n) => {
+    const u = s.updates.find((x) => x.id === n.id)
+    if (!u || frames.has(n.service)) return n
+    kept.set(n.id, { name: n.name, config: n.config, position: n.position })
+    return { ...n, name: u.name ?? n.name, config: u.config ? { ...n.config, ...u.config } : n.config, position: u.position ?? n.position }
+  })
+  const banned = new Set([ServiceType.Region, ServiceType.VPC, ServiceType.Client])
+  const fresh = s.nodes.filter((n) => !byId.has(n.id) && !banned.has(n.service)).map((n) => ({ ...n, suggested: true }))
+  const ids = new Set([...byId.keys(), ...fresh.map((n) => n.id)])
+  const removed = new Set(s.removedEdges)
+  const edges = base.edges.map((e) => (removed.has(e.id) ? { ...e, suggestedRemoval: true } : e))
+  const pairs = new Set(edges.filter((e) => !e.suggestedRemoval).map((e) => `${e.from}>${e.to}`))
+  const links = s.edges
     .filter((e) => e.from !== e.to && ids.has(e.from) && ids.has(e.to) && !pairs.has(`${e.from}>${e.to}`))
     .map((e) => ({ ...e, suggested: true }))
-  return { ...base, nodes: [...base.nodes, ...fresh], edges: [...base.edges, ...links] }
+  return { graph: { ...base, nodes: [...updated, ...fresh], edges: [...edges, ...links] }, originals: kept }
 }
 
 export const acceptSuggestion = (graph: Graph): Graph => ({
   ...graph,
   nodes: graph.nodes.map((n) => (n.suggested ? { ...n, suggested: undefined } : n)),
-  edges: graph.edges.map((e) => (e.suggested ? { ...e, suggested: undefined } : e)),
+  edges: graph.edges.filter((e) => !e.suggestedRemoval).map((e) => (e.suggested ? { ...e, suggested: undefined } : e)),
 })
 
-export const toJSON = (graph: Graph): string => JSON.stringify(committed(graph), null, 2)
+export const toJSON = (graph: Graph, originals: Originals = new Map()): string => JSON.stringify(committed(graph, originals), null, 2)
 
 export const fromJSON = (json: string): Graph => graphSchema.parse(JSON.parse(json)) as Graph

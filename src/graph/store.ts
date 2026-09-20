@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExtern
 import type { ServiceType } from "../types/math"
 import * as ops from "./graph"
 import { THROUGHPUT_MODELS } from "../math/simulate"
-import { emptyGraph, type GlobalDefaults, type Graph, type GraphEdge, type GraphNode, type Position } from "./types"
+import { emptyGraph, type GlobalDefaults, type Graph, type Position, type Suggestion } from "./types"
 import { Runtime, type NodeResult } from "./walk"
 
 type Listener = () => void
@@ -49,13 +49,30 @@ class GraphStore {
   removeEdge = (id: string) => this.set(ops.removeEdge(this.graph, id))
   setEdgeBytes = (id: string, avgBytes: number | undefined) => this.set(ops.updateEdge(this.graph, id, { avgBytes }))
 
-  committed = () => ops.committed(this.graph)
-  suggest = (nodes: GraphNode[], edges: GraphEdge[]) => this.set(ops.suggest(this.graph, nodes, edges))
-  acceptSuggestion = () => this.set(ops.acceptSuggestion(this.graph))
-  rejectSuggestion = () => this.set(ops.committed(this.graph))
+  private originals: ops.Originals = new Map()
 
-  toJSON = () => ops.toJSON(this.graph)
-  fromJSON = (json: string) => this.set(ops.fromJSON(json))
+  hasSuggestion = () => ops.hasSuggestion(this.graph, this.originals)
+  committed = () => ops.committed(this.graph, this.originals)
+  suggest = (s: Suggestion) => {
+    const next = ops.suggest(this.graph, this.originals, s)
+    this.originals = next.originals
+    this.set(next.graph)
+  }
+  acceptSuggestion = () => {
+    this.originals = new Map()
+    this.set(ops.acceptSuggestion(this.graph))
+  }
+  rejectSuggestion = () => {
+    const next = ops.committed(this.graph, this.originals)
+    this.originals = new Map()
+    this.set(next)
+  }
+
+  toJSON = () => ops.toJSON(this.graph, this.originals)
+  fromJSON = (json: string) => {
+    this.originals = new Map()
+    this.set(ops.fromJSON(json))
+  }
 }
 
 export const graphStore = new GraphStore()

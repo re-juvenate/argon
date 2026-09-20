@@ -4,7 +4,7 @@ import jwt
 import pytest
 
 from agent.dependencies import get_agent_settings, get_completion_service, get_session_issuer
-from agent.schemas import Graph, Plan, PlannedEdge, PlannedNode
+from agent.schemas import Graph, Plan, PlannedEdge, PlannedNode, PlannedUpdate
 from agent.service import CompletionService, parse_config
 from agent.session import SessionError, SessionIssuer
 from agent.settings import AgentSettings
@@ -24,8 +24,12 @@ GRAPH = {
 }
 
 
-def plan_of(nodes, edges, rationale="because") -> Plan:
-    return Plan(rationale=rationale, nodes=nodes, edges=edges)
+def plan_of(nodes, edges, rationale="because", remove=(), updates=()) -> Plan:
+    return Plan(rationale=rationale, nodes=nodes, edges=edges, removeEdges=list(remove), updates=list(updates))
+
+
+def upd(id, name=None, config=None, x=None, y=None) -> PlannedUpdate:
+    return PlannedUpdate(id=id, name=name, config=config, x=x, y=y)
 
 
 @pytest.fixture
@@ -200,6 +204,101 @@ def test_materialize_renames_colliding_edge_id():
     plan = plan_of([PlannedNode(id="ai-cf", service="cloudfront", name=None, config="{}", x=0, y=0, parentId=None)],[PlannedEdge(id="e1", source="client", target="ai-cf")])
     added = CompletionService.materialize(graph, plan)
     assert added.edges[0].id == "ai-edge-client-ai-cf"
+
+
+CHAIN = Graph.model_validate(
+    {
+        "version": 1,
+        "nodes": [
+            {"id": "client", "service": "client", "config": {}, "position": {"x": 0, "y": 0}},
+            {"id": "db", "service": "rds", "config": {"queryMs": 5}, "position": {"x": 320, "y": 0}},
+            {"id": "reg", "service": "region", "config": {}, "position": {"x": 0, "y": 500}},
+        ],
+        "edges": [{"id": "e1", "from": "client", "to": "db"}],
+    }
+)
+
+
+def test_materialize_insert_between_removes_old_edge_and_moves():
+    plan = plan_of(
+        [PlannedNode(id="ai-lb", service="lb", name=None, config="{}", x=320, y=0, parentId=None)],
+        [PlannedEdge(id="n1", source="client", target="ai-lb"), PlannedEdge(id="n2", source="ai-lb", target="db"), PlannedEdge(id="n3", source="client", target="db")],
+        remove=["e1", "e1", "ghost"],
+        updates=[upd("db", x=640, y=0, config='{"maxConnections": 200}'), upd("db", name="dup"), upd("reg", x=1, y=1), upd("nope", name="x"), upd("client"), upd("client", x=5, y=None)],
+    )
+    added = CompletionService.materialize(CHAIN, plan)
+    assert added.removedEdges == ["e1"]
+    assert [(e.from_, e.to) for e in added.edges] == [("client", "ai-lb"), ("ai-lb", "db"), ("client", "db")]
+    assert len(added.updates) == 1
+    u = added.updates[0]
+    assert u.id == "db" and u.position.x == 640 and u.config == {"maxConnections": 200} and u.name is None
+
+
+def test_materialize_rejects_frames_and_client():
+    plan = plan_of(
+        [
+            PlannedNode(id="ai-vpc", service="vpc", name=None, config="{}", x=0, y=0, parentId=None),
+            PlannedNode(id="ai-reg", service="region", name=None, config="{}", x=0, y=0, parentId=None),
+            PlannedNode(id="ai-client", service="client", name=None, config="{}", x=0, y=0, parentId=None),
+            PlannedNode(id="ai-asg", service="asg", name=None, config="{}", x=0, y=0, parentId=None),
+            PlannedNode(id="ai-ec2", service="ec2", name=None, config="{}", x=0, y=0, parentId="ai-asg"),
+            PlannedNode(id="ai-in-reg", service="s3", name=None, config="{}", x=0, y=0, parentId="reg"),
+        ],
+        [],
+    )
+    added = CompletionService.materialize(CHAIN, plan)
+    assert [n.id for n in added.nodes] == ["ai-asg", "ai-ec2", "ai-in-reg"]
+    assert added.nodes[1].parentId == "ai-asg"
+    assert added.nodes[2].parentId is None
+
+
+def test_complete_merges_updates_and_removals(wired, issuer):
+    graph = CHAIN.model_dump(by_alias=True, exclude_none=True)
+    plan = plan_of(
+        [PlannedNode(id="ai-lb", service="lb", name=None, config="{}", x=320, y=0, parentId=None)],
+        [PlannedEdge(id="n1", source="client", target="ai-lb"), PlannedEdge(id="n2", source="ai-lb", target="db")],
+        remove=["e1"],
+        updates=[upd("db", x=640, y=0, config='{"maxConnections": 200}', name="primary")],
+    )
+    app.dependency_overrides[get_completion_service] = lambda: CompletionService(lambda s, p: plan)
+    body = wired.post("/agent/complete", json={"graph": graph}, headers=bearer(issuer)).json()
+    assert body["added"]["removedEdges"] == ["e1"]
+    assert body["added"]["updates"] == [{"id": "db", "name": "primary", "config": {"maxConnections": 200}, "position": {"x": 640.0, "y": 0.0}}]
+    db = next(n for n in body["graph"]["nodes"] if n["id"] == "db")
+    assert db["config"] == {"queryMs": 5, "maxConnections": 200} and db["position"]["x"] == 640 and db["name"] == "primary"
+    assert [e["id"] for e in body["graph"]["edges"]] == ["n1", "n2"]
+
+
+def test_feedback_note_reports_accepted_and_discarded(issuer):
+    calls = []
+
+    def planner(session_id, prompt):
+        calls.append(prompt)
+        return plan_of(
+            [PlannedNode(id="ai-lb", service="lb", name=None, config="{}", x=0, y=0, parentId=None), PlannedNode(id="ai-cache", service="elasticache", name=None, config="{}", x=0, y=0, parentId=None)],
+            [PlannedEdge(id="ai-e1", source="client", target="ai-lb")],
+        )
+
+    service = CompletionService(planner)
+    service.complete("s1", CHAIN, None)
+    assert "Since your last proposal" not in calls[0]
+    accepted = CHAIN.model_copy(update={"nodes": [*CHAIN.nodes, GraphNodeOf("ai-lb", "lb")], "edges": [*CHAIN.edges, GraphEdgeOf("ai-e1", "client", "ai-lb")]})
+    service.complete("s1", accepted, None)
+    assert calls[1].startswith("Since your last proposal — accepted: ai-lb, ai-e1; discarded: ai-cache.")
+    service.complete("s2", CHAIN, None)
+    assert "Since your last proposal" not in calls[2]
+
+
+def GraphNodeOf(id, service):
+    from agent.schemas import GraphNode
+
+    return GraphNode(id=id, service=service)
+
+
+def GraphEdgeOf(id, a, b):
+    from agent.schemas import GraphEdge
+
+    return GraphEdge(id=id, **{"from": a}, to=b)
 
 
 def test_parse_config_variants():

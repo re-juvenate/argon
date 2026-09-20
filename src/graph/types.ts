@@ -22,6 +22,21 @@ export interface GraphEdge {
   to: string
   avgBytes?: number
   suggested?: boolean
+  suggestedRemoval?: boolean
+}
+
+export interface NodeUpdate {
+  id: string
+  name?: string
+  config?: Record<string, unknown>
+  position?: Position
+}
+
+export interface Suggestion {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  removedEdges: string[]
+  updates: NodeUpdate[]
 }
 
 export interface GlobalDefaults {
@@ -70,6 +85,14 @@ export const graphEdgeSchema = z.object({
   to: z.string().min(1),
   avgBytes: z.number().positive().optional(),
   suggested: z.boolean().optional(),
+  suggestedRemoval: z.boolean().optional(),
+})
+
+export const nodeUpdateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  position: positionSchema.optional(),
 })
 
 export const globalDefaultsSchema = z.object({

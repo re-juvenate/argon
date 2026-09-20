@@ -79,10 +79,27 @@ class PlannedEdge(BaseModel):
     target: str = Field(min_length=1)
 
 
+class PlannedUpdate(BaseModel):
+    id: str = Field(min_length=1)
+    name: str | None
+    config: str | None = Field(description="JSON object string to merge into the node config, or null")
+    x: float | None
+    y: float | None
+
+
 class Plan(BaseModel):
     rationale: str
     nodes: list[PlannedNode]
     edges: list[PlannedEdge]
+    removeEdges: list[str]
+    updates: list[PlannedUpdate]
+
+
+class NodeUpdate(BaseModel):
+    id: str
+    name: str | None = None
+    config: dict[str, Any] | None = None
+    position: Position | None = None
 
 
 class SessionRead(BaseModel):
@@ -100,6 +117,8 @@ class CompletionCreate(BaseModel):
 class Additions(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+    removedEdges: list[str] = Field(default_factory=list)
+    updates: list[NodeUpdate] = Field(default_factory=list)
 
 
 class CompletionRead(BaseModel):

@@ -2,14 +2,15 @@ import json
 from collections.abc import Callable
 
 from agent.groq import FALLBACK_MODELS, with_groq_retry
-from agent.prompts import SYSTEM_PROMPT, user_message
-from agent.schemas import Additions, CompletionRead, Graph, GraphEdge, GraphNode, Plan, PlannedNode, ServiceType
+from agent.prompts import SUGGESTABLE, SYSTEM_PROMPT, user_message
+from agent.schemas import Additions, CompletionRead, Graph, GraphEdge, GraphNode, NodeUpdate, Plan, PlannedNode, ServiceType
 from agent.settings import AgentSettings
 
 Planner = Callable[[str, str], Plan]
 
 FRAMES = {ServiceType.asg, ServiceType.region, ServiceType.vpc}
 ASG_MEMBERS = {ServiceType.ec2, ServiceType.ecs}
+ADDABLE = set(SUGGESTABLE)
 
 
 def build_planner(settings: AgentSettings) -> Planner:
@@ -48,7 +49,7 @@ def build_planner(settings: AgentSettings) -> Planner:
     return plan
 
 
-def parse_config(raw: str) -> dict:
+def parse_config(raw: str | None) -> dict:
     try:
         value = json.loads(raw or "{}")
     except json.JSONDecodeError:
@@ -59,35 +60,60 @@ def parse_config(raw: str) -> dict:
 class CompletionService:
     def __init__(self, planner: Planner) -> None:
         self.planner = planner
+        self.proposed: dict[str, list[str]] = {}
 
     def complete(self, session_id: str, graph: Graph, prompt: str | None) -> CompletionRead:
-        plan = self.planner(session_id, user_message(prompt, graph.model_dump_json(by_alias=True, exclude_none=True)))
+        present = {n.id for n in graph.nodes} | {e.id for e in graph.edges}
+        last = self.proposed.get(session_id, [])
+        accepted = [i for i in last if i in present]
+        rejected = [i for i in last if i not in present]
+        message = user_message(prompt, graph.model_dump_json(by_alias=True, exclude_none=True), accepted, rejected)
+        plan = self.planner(session_id, message)
         added = self.materialize(graph, plan)
+        self.proposed[session_id] = [n.id for n in added.nodes] + [e.id for e in added.edges]
+        removed = set(added.removedEdges)
+        updates = {u.id: u for u in added.updates}
+        nodes = [CompletionService.apply_update(n, updates.get(n.id)) for n in graph.nodes] + added.nodes
         merged = Graph(
             version=1,
             defaults=graph.defaults,
-            nodes=[*graph.nodes, *added.nodes],
-            edges=[*graph.edges, *added.edges],
+            nodes=nodes,
+            edges=[e for e in graph.edges if e.id not in removed] + added.edges,
         )
         return CompletionRead(session_id=session_id, rationale=plan.rationale, graph=merged, added=added)
+
+    @staticmethod
+    def apply_update(node: GraphNode, u: NodeUpdate | None) -> GraphNode:
+        if u is None:
+            return node
+        return node.model_copy(
+            update={
+                "name": u.name if u.name is not None else node.name,
+                "config": {**node.config, **(u.config or {})},
+                "position": u.position or node.position,
+            }
+        )
 
     @staticmethod
     def materialize(graph: Graph, plan: Plan) -> Additions:
         existing = {n.id: n for n in graph.nodes}
         nodes: list[GraphNode] = []
         for p in plan.nodes:
-            if p.id in existing or any(n.id == p.id for n in nodes):
+            if p.id in existing or any(n.id == p.id for n in nodes) or p.service not in ADDABLE:
                 continue
             nodes.append(CompletionService.to_node(p))
         known = {**existing, **{n.id: n for n in nodes}}
         for n in nodes:
             parent = known.get(n.parentId) if n.parentId else None
-            if parent is None or parent.service not in FRAMES or parent.id == n.id:
+            if parent is None or parent.service != ServiceType.asg or parent.id == n.id or n.service not in ASG_MEMBERS:
                 n.parentId = None
-            elif parent.service == ServiceType.asg and n.service not in ASG_MEMBERS:
-                n.parentId = None
-        edge_ids = {e.id for e in graph.edges}
-        seen = {(e.from_, e.to) for e in graph.edges}
+
+        existing_edges = {e.id: e for e in graph.edges}
+        removed = [i for i in dict.fromkeys(plan.removeEdges) if i in existing_edges]
+        removed_set = set(removed)
+
+        edge_ids = set(existing_edges)
+        seen = {(e.from_, e.to) for e in graph.edges if e.id not in removed_set}
         edges: list[GraphEdge] = []
         for e in plan.edges:
             if e.source == e.target or (e.source, e.target) in seen:
@@ -101,7 +127,21 @@ class CompletionService:
             edge_ids.add(edge_id)
             seen.add((e.source, e.target))
             edges.append(GraphEdge(id=edge_id, **{"from": e.source}, to=e.target))
-        return Additions(nodes=nodes, edges=edges)
+
+        updates: list[NodeUpdate] = []
+        for u in plan.updates:
+            node = existing.get(u.id)
+            if node is None or node.service in FRAMES or u.id in {x.id for x in updates}:
+                continue
+            config = parse_config(u.config) if u.config else None
+            position = None
+            if u.x is not None and u.y is not None:
+                position = {"x": u.x, "y": u.y}
+            if u.name is None and not config and position is None:
+                continue
+            updates.append(NodeUpdate(id=u.id, name=u.name, config=config or None, position=position))
+
+        return Additions(nodes=nodes, edges=edges, removedEdges=removed, updates=updates)
 
     @staticmethod
     def to_node(p: PlannedNode) -> GraphNode:

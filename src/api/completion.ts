@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { graphEdgeSchema, graphNodeSchema, graphSchema, type Graph, type GraphEdge, type GraphNode } from "#graph"
+import { graphEdgeSchema, graphNodeSchema, graphSchema, nodeUpdateSchema, type Graph, type Suggestion } from "#graph"
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8000"
 
@@ -12,7 +12,12 @@ const completionSchema = z.object({
   session_id: z.string(),
   rationale: z.string(),
   graph: graphSchema,
-  added: z.object({ nodes: z.array(graphNodeSchema), edges: z.array(graphEdgeSchema) }),
+  added: z.object({
+    nodes: z.array(graphNodeSchema),
+    edges: z.array(graphEdgeSchema),
+    removedEdges: z.array(z.string()).default([]),
+    updates: z.array(nodeUpdateSchema).default([]),
+  }),
 })
 
 export interface Session {
@@ -25,7 +30,7 @@ export interface Completion {
   sessionId: string
   rationale: string
   graph: Graph
-  added: { nodes: GraphNode[]; edges: GraphEdge[] }
+  added: Suggestion
 }
 
 export class ApiError extends Error {
@@ -116,5 +121,5 @@ export async function complete(graph: Graph, prompt?: string): Promise<Completio
     raw = await send(await connect(true))
   }
 
-  return { sessionId: raw.session_id, rationale: raw.rationale, graph: raw.graph as Graph, added: raw.added as Completion["added"] }
+  return { sessionId: raw.session_id, rationale: raw.rationale, graph: raw.graph as Graph, added: raw.added as Suggestion }
 }

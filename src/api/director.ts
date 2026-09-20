@@ -1,6 +1,7 @@
 import type { Graph } from "#graph"
 
 export const SETTLE_MS = 2000
+export const INTERACTION_SETTLE_MS = 1000
 export const MIN_SPACING_MS = 5000
 export const ERROR_BACKOFF_MS = 10_000
 export const MAX_BACKOFF_MS = 120_000
@@ -11,6 +12,7 @@ export enum Phase {
   InFlight = "in-flight",
   Overlay = "overlay",
   Blocked = "blocked",
+  Editing = "editing",
   Off = "off",
 }
 
@@ -21,6 +23,7 @@ export interface Signals {
   enabled: boolean
   visible: boolean
   session: boolean
+  interacting: boolean
 }
 
 export const fingerprintOf = (graph: Graph): string =>
@@ -45,9 +48,11 @@ export class CompletionDirector {
 
   phase(s: Signals): Phase {
     this.observe(s.fingerprint, s.now)
+    if (s.interacting) this.changedAt = Math.max(this.changedAt, s.now - SETTLE_MS + INTERACTION_SETTLE_MS)
     if (!s.enabled || !s.visible || !s.session) return Phase.Off
     if (this.inFlight) return Phase.InFlight
     if (s.overlay) return Phase.Overlay
+    if (s.interacting) return Phase.Editing
     if (s.now < this.nextAllowedAt) return Phase.Blocked
     if (this.lastSeen === this.lastSent) return Phase.Idle
     return s.now - this.changedAt >= SETTLE_MS ? Phase.Idle : Phase.Settling

@@ -46,7 +46,7 @@ export default function Node({
   visibleChildren,
   children,
 }: NodeProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const editRef = useRef<HTMLInputElement>(null)

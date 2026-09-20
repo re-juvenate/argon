@@ -31,6 +31,8 @@ export enum ServiceType {
   CloudFront = "cloudfront",
   Route53 = "route53",
   Aurora = "aurora",
+  EBS = "ebs",
+  EFS = "efs",
   Client = "client",
   Region = "region",
 }

@@ -24,6 +24,14 @@ const AVAILABILITY: Record<string, number> = Object.fromEntries(
   parseCsv(tiersCsv).map((row) => [row["Storage Class"], num(row["Availability Design"]?.replace("%", ""), NaN) / 100]),
 );
 
+export const STORAGE_FEES: Record<string, number> = Object.fromEntries(
+  parseCsv(tiersCsv).map((row) => [row["Storage Class"], num(row["Storage Fee per GB Month (USD)"], 0)]),
+);
+
+export function storageFee(tier: S3StorageTier): number {
+  return STORAGE_FEES[TIER_ROW[tier]] || 0;
+}
+
 export function availabilityDesign(tier: S3StorageTier): number | undefined {
   const a = AVAILABILITY[TIER_ROW[tier]];
   return Number.isFinite(a) ? a : undefined;

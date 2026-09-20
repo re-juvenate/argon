@@ -8,6 +8,8 @@ import { SERVICE_COLORS } from "../../colors"
 import { serviceIcon } from "../../icons"
 import Slider from "../../nodeoptions/slider"
 
+import EnumDropdown from "../../nodeoptions/enumdropdown"
+
 const OUTPUT_ONLY = [SocketType.Output]
 
 const Client = ({ style, id }: { style?: CSSProperties; id?: string }) => {
@@ -23,26 +25,42 @@ const Client = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       sockets={OUTPUT_ONLY}
       visibleChildren={<span className="text-xs text-[#999999]">{config.rps} req/s</span>}
     >
-      <Slider
-        label="Requests / s"
-        min={1}
-        max={100000}
-        step={1}
-        decimals={0}
-        defaultValue={CLIENT_DEFAULTS.rps}
-        value={config.rps}
-        onChange={(rps) => patch({ rps })}
-      />
-      <Slider
-        label="Avg Request (bytes)"
-        min={64}
-        max={1048576}
-        step={64}
-        decimals={0}
-        defaultValue={CLIENT_DEFAULTS.avgBytes}
-        value={config.avgBytes}
-        onChange={(avgBytes) => patch({ avgBytes })}
-      />
+      <EnumDropdown label="Noise" optionNames={["None", "Noise"]}>
+        <>
+          <Slider
+            label="Requests / s"
+            min={1}
+            max={100000}
+            step={1}
+            decimals={0}
+            defaultValue={CLIENT_DEFAULTS.rps}
+            value={config.rps}
+            onChange={(rps) => patch({ rps })}
+          />
+          <Slider
+            label="Avg Request (bytes)"
+            min={64}
+            max={1048576}
+            step={64}
+            decimals={0}
+            defaultValue={CLIENT_DEFAULTS.avgBytes}
+            value={config.avgBytes}
+            onChange={(avgBytes) => patch({ avgBytes })}
+          />
+        </>
+        <>
+          <Slider
+            label="Noise Factor"
+            min={0}
+            max={10}
+            step={0.1}
+            decimals={1}
+            defaultValue={CLIENT_DEFAULTS.noiseFactor}
+            value={config.noiseFactor}
+            onChange={(noiseFactor) => patch({ noiseFactor })}
+          />
+        </>
+      </EnumDropdown>
     </Node>
   )
 }

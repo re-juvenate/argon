@@ -14,6 +14,8 @@ export const SERVICE_COLORS: Record<ServiceType, string> = {
   [ServiceType.CloudFront]: "#693cc5",
   [ServiceType.Route53]: "#8c4fff",
   [ServiceType.Aurora]: "#3f4fd3",
+  [ServiceType.EBS]: "#e66d00",
+  [ServiceType.EFS]: "#408723",
   [ServiceType.Client]: "#6e6e1d",
   [ServiceType.Region]: "#147eba",
 }

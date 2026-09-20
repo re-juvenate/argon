@@ -65,6 +65,8 @@ export const THROUGHPUT_MODELS = {
   [ServiceType.CloudFront]: cloudfront,
   [ServiceType.Route53]: route53,
   [ServiceType.Aurora]: aurora,
+  [ServiceType.EBS]: s3,
+  [ServiceType.EFS]: s3,
   [ServiceType.Client]: client,
   [ServiceType.Region]: region,
 } satisfies Record<ServiceType, ServiceModel<object, unknown>>;
@@ -103,6 +105,8 @@ export const LATENCY_MODELS = {
   [ServiceType.CloudFront]: cloudfrontLatency,
   [ServiceType.Route53]: route53Latency,
   [ServiceType.Aurora]: auroraLatency,
+  [ServiceType.EBS]: s3Latency,
+  [ServiceType.EFS]: s3Latency,
   [ServiceType.Client]: clientLatency,
   [ServiceType.Region]: regionLatency,
 } satisfies Record<ServiceType, LatencyModel<object, unknown>>;
@@ -132,6 +136,8 @@ export const DROP_MODELS = {
   [ServiceType.CloudFront]: cloudfrontDrop,
   [ServiceType.Route53]: route53Drop,
   [ServiceType.Aurora]: auroraDrop,
+  [ServiceType.EBS]: s3Drop,
+  [ServiceType.EFS]: s3Drop,
   [ServiceType.Client]: clientDrop,
   [ServiceType.Region]: regionDrop,
 } satisfies Record<ServiceType, DropModel<object, unknown>>;

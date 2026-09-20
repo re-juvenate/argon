@@ -40,6 +40,8 @@ import Fargate from "./nodes/fargate/fargate"
 import Lambda from "./nodes/lambda/lambda"
 import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
+import EBS from "./nodes/ebs/ebs"
+import EFS from "./nodes/efs/efs"
 
 import { EditorProvider, useEditor } from "./EditorContext"
 import { CARD_H, CARD_W, COLUMNS, DEFAULT_DOCKED, DockedGraphPanel, type Docked } from "./GraphPanel"
@@ -74,6 +76,8 @@ const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.CloudFront]: Cloudfront,
   [ServiceType.Route53]: Route53,
   [ServiceType.Aurora]: Aurora,
+  [ServiceType.EBS]: EBS,
+  [ServiceType.EFS]: EFS,
   [ServiceType.Client]: Client,
   [ServiceType.Region]: Region,
 }
@@ -89,6 +93,8 @@ const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
   [ServiceType.CloudFront]: "cloudfront.svg",
   [ServiceType.Route53]: "route53.svg",
   [ServiceType.Aurora]: "aurora.svg",
+  [ServiceType.EBS]: "ebs.svg",
+  [ServiceType.EFS]: "efs.svg",
   [ServiceType.Client]: "client.svg",
   [ServiceType.Region]: "region.svg",
 }

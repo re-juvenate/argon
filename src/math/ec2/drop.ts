@@ -10,10 +10,18 @@ import { cpuCapacityMbps, EC2_ASSUMED, EC2_DEFAULTS, resolveSpec, type EC2Config
 export interface PlanSpec {
   plan: string;
   reclaimable: boolean;
+  discountPct: number;
 }
 
 export const PLAN_SPECS: Record<string, PlanSpec> = Object.fromEntries(
-  parseCsv(planCsv).map((row) => [row.PurchasingOption, { plan: row.PurchasingOption, reclaimable: num(row.ReclaimableByAWS, 0) > 0 }]),
+  parseCsv(planCsv).map((row) => [
+    row.PurchasingOption,
+    { 
+      plan: row.PurchasingOption, 
+      reclaimable: num(row.ReclaimableByAWS, 0) > 0,
+      discountPct: num(row.BaselineDiscountPct, 0)
+    },
+  ]),
 );
 
 export const EC2_DROP_ASSUMED = {

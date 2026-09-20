@@ -42,6 +42,7 @@ export interface InstanceSpec {
   burstMbps: Mbps;
   // value NaN when the CSV row has no baseline
   baselineMbps: Mbps;
+  ondemandHourlyCostUsd: number;
 }
 
 export const INSTANCE_SPECS: Record<string, InstanceSpec> = Object.fromEntries(
@@ -53,6 +54,7 @@ export const INSTANCE_SPECS: Record<string, InstanceSpec> = Object.fromEntries(
       memGiB: num(row.mem_gib),
       burstMbps: gbpsToMbps(num(row.network_bandwidth_gbps)),
       baselineMbps: gbpsToMbps(num(row.baseline_bandwidth_gbps)),
+      ondemandHourlyCostUsd: num(row.ondemand_hourly_cost_usd, 0),
     };
     return [spec.instanceType, spec];
   }),

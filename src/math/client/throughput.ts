@@ -4,13 +4,18 @@ import { bytes, KiB, offered, pipe, resolve, splitEven, toMbps } from "../utilit
 export interface ClientConfig {
   rps?: number;
   avgBytes?: number;
+  noiseFactor?: number;
 }
 
-export const CLIENT_DEFAULTS: Required<ClientConfig> = { rps: 100, avgBytes: 4 * KiB };
+export const CLIENT_DEFAULTS: Required<ClientConfig> = { 
+  rps: 100, 
+  avgBytes: 4 * KiB,
+  noiseFactor: 1.0,
+};
 
 export const sourceMbps = (config?: ClientConfig) => {
   const c = resolve(CLIENT_DEFAULTS, config);
-  return toMbps(c.rps, bytes(c.avgBytes));
+  return toMbps(c.rps * c.noiseFactor, bytes(c.avgBytes));
 };
 
 export const model: ServiceModel<ClientConfig> = {

@@ -7,9 +7,7 @@ const Fifth = () => {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-
     const arrows = container.querySelectorAll(".tracking-arrow")
-
     let animationFrameId: number
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -41,7 +39,6 @@ const Fifth = () => {
       ref={containerRef}
       className="relative w-full min-h-[80vh] bg-neutral-50 dark:bg-[#0a0a0a] overflow-hidden flex items-center justify-center border-t border-neutral-200 dark:border-neutral-900/50 transition-colors duration-300"
     >
-      {/* Arrow Grid Background */}
       <div className="absolute inset-0 grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] content-start gap-4 p-8 pointer-events-none">
         {Array.from({ length: 250 }).map((_, i) => (
           <div key={i} className="flex items-center justify-center">
@@ -52,7 +49,6 @@ const Fifth = () => {
         ))}
       </div>
 
-      {/* Center CTA */}
       <div className="relative z-10 pointer-events-auto">
         <button className="group relative px-12 py-6 bg-black dark:bg-white text-white dark:text-black font-black text-5xl md:text-7xl tracking-tighter">
           Deploy the app!

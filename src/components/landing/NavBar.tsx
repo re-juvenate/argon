@@ -19,7 +19,7 @@ interface NavLinkItem {
 const NAV_LINKS: NavLinkItem[] = [
   { label: "Home", href: "/" },
   { label: "Graph", href: "/graph" },
-  { label: "Contact", href: "/contact" },
+  { label: "Contact", href: "https://rejuvenate-portfolio.vercel.app/" },
 ]
 
 interface SocialLinkItem {
@@ -28,7 +28,7 @@ interface SocialLinkItem {
 }
 
 const SOCIAL_LINKS: SocialLinkItem[] = [
-  { label: "GitHub", href: "https://github.com" },
+  { label: "GitHub", href: "https://github.com/re-juvenate/argon" },
   { label: "YouTube", href: "https://youtube.com" },
   { label: "X / Twitter", href: "https://x.com" },
 ]
@@ -46,7 +46,7 @@ const NEWS: NewsItem[] = [
     source: "Blog",
     description: "How we built an interactive AWS simulator using React and GSAP.",
     type: "Article",
-    href: "#",
+    href: "https://builder.aws.com/content/3Jazoj7AsnFBA57fl4aUn2kuGfu/argon-break-your-aws-architecture-before-production-does",
     logo: { text: "Blog", className: "bg-blue-600 text-white text-3xl font-bold" },
   },
   {
@@ -60,7 +60,7 @@ const NEWS: NewsItem[] = [
     source: "GitHub",
     description: "Argon is now open source! Check out the repository and contribute.",
     type: "Release",
-    href: "https://github.com",
+    href: "https://github.com/re-juvenate/argon",
     logo: { text: "GH", className: "bg-neutral-800 text-white text-6xl font-black" },
   },
   {

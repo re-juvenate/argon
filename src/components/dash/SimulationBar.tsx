@@ -33,6 +33,7 @@ export default function SimulationBar() {
       className="flex flex-col items-center gap-2 p-2 min-w-14 w-max bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
     >
       <button
+        id="tour-simulate"
         type="button"
         title={running ? "pause" : "run"}
         onClick={() => setRunning(!running)}

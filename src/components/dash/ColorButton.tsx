@@ -3,6 +3,7 @@ import clsx from "clsx"
 const ColorButton = ({ label = "Deploy to AWS", compact = false, onClick }: { label?: string; compact?: boolean; onClick?: () => void }) => {
   return (
     <button
+      id="tour-color"
       type="button"
       onClick={onClick}
       className={clsx(

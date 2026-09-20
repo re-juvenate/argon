@@ -29,6 +29,7 @@ export default function GraphIo() {
 
   return (
     <div
+      id="tour-deploy"
       onPointerDown={(e) => e.stopPropagation()}
       className="flex flex-col items-center gap-2 p-2 min-w-14 w-max bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
     >

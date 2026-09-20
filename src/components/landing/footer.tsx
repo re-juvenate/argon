@@ -78,14 +78,14 @@ export default function Footer() {
         <div className="flex flex-col items-start justify-center space-y-6">
           <div className="space-y-2">
             <div className="text-sm font-medium text-neutral-400">Try Argon Simulator NOW</div>
-            <button className="px-6 py-2 bg-white text-black rounded text-sm font-medium transition-colors cursor-pointer">Launch App</button>
+            <a href="/graph" className="inline-block px-6 py-2 bg-white text-black rounded text-sm font-medium transition-colors cursor-pointer">Launch App</a>
           </div>
           <div className="space-y-2">
             <div className="text-sm font-medium text-neutral-400">Contribute and Star</div>
-            <button className="flex items-center space-x-2 px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded text-sm font-medium transition-colors cursor-pointer">
+            <a href="https://github.com/re-juvenate/argon" className="inline-flex items-center space-x-2 px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded text-sm font-medium transition-colors cursor-pointer">
               <GithubLogo weight="fill" className="w-5 h-5" />
               <span>GitHub</span>
-            </button>
+            </a>
           </div>
         </div>
 

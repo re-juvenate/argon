@@ -59,6 +59,7 @@ import { graphStore, useGraph } from "#graph"
 import { SimulationProvider } from "./Simulation"
 import SimulationBar from "./SimulationBar"
 import GraphIo from "./GraphIo"
+import Breaking from "./Breaking"
 import Completion from "./Completion"
 import ColorButton from "./ColorButton"
 import BlenderAddMenu from "./BlenderAddMenu"
@@ -173,9 +174,12 @@ const useIsDesktop = () => {
   return isDesktop
 }
 
+import { useTour } from "./useTour"
+
 export default function Layout() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [hovering, setHovering] = useState(false)
+  useTour()
 
   return (
     <SimulationProvider>
@@ -185,6 +189,7 @@ export default function Layout() {
     </SimulationProvider>
   )
 }
+
 
 interface EditorProps {
   selectedIds: Set<string>
@@ -629,6 +634,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
 
   const sidebarSection = (
     <section
+      id="tour-sidepanel"
       className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
       style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
     >
@@ -671,8 +677,10 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       <div className="absolute left-1/2 -translate-x-1/2 top-4 z-50">
         <Completion />
       </div>
+      <Breaking />
       <Viewport>
                 <div
+                  id="tour-canvas"
                   data-island-board
                   onPointerDownCapture={onSelectPointerDown}
                   onContextMenu={onBoardContextMenu}
@@ -701,7 +709,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
   )
 
   const dockedSection = (
-    <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4" onContextMenu={onDockedContextMenu}>
+    <section id="tour-docked" className="flex-1 min-h-0 w-full relative overflow-hidden p-4" onContextMenu={onDockedContextMenu}>
         {docked.length === 0 && (
           <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
             Drag a graph from a service to view the graphs here
@@ -825,7 +833,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-background">
+    <div id="tour-both" className="w-screen h-screen overflow-hidden bg-background">
       <Group orientation="vertical" className="w-full h-full">
         <Panel defaultSize="85%" minSize="50%">
           <Group orientation="horizontal" className="w-full h-full">
@@ -836,7 +844,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
             <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 
             <Panel defaultSize="85%" className="relative">
-              <div className="relative w-full h-full">{boardArea}</div>
+              <div id="tour-canvas-wrapper" className="relative w-full h-full">{boardArea}</div>
             </Panel>
           </Group>
         </Panel>

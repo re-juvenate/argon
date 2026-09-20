@@ -25,7 +25,7 @@ import { InstanceCtx } from "./Node"
 import Viewport from "./Viewport"
 import { GRAPH_MIME, Metric, METRICS, type GraphPayload } from "./metrics"
 import ContextMenu, { type MenuAt, type MenuItem } from "./ContextMenu"
-import { ChartLineIcon, PencilSimpleIcon, SquaresFourIcon, TrashIcon, Copy } from "@phosphor-icons/react/dist/ssr"
+import { ChartLineIcon, PencilSimpleIcon, PlusIcon, SquaresFourIcon, TrashIcon, Copy } from "@phosphor-icons/react/dist/ssr"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
@@ -44,6 +44,12 @@ import Route53 from "./nodes/route53/route53"
 import S3 from "./nodes/s3/s3"
 import EBS from "./nodes/ebs/ebs"
 import EFS from "./nodes/efs/efs"
+import RDS from "./nodes/rds/rds"
+import ApiGateway from "./nodes/apigateway/apigateway"
+import DynamoDB from "./nodes/dynamodb/dynamodb"
+import SNS from "./nodes/sns/sns"
+import ElastiCache from "./nodes/elasticache/elasticache"
+import Kinesis from "./nodes/kinesis/kinesis"
 
 import { EditorProvider, useEditor } from "./EditorContext"
 import { CARD_H, CARD_W, COLUMNS, DEFAULT_DOCKED, DockedGraphPanel, type Docked } from "./GraphPanel"
@@ -84,6 +90,12 @@ const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.Client]: Client,
   [ServiceType.Region]: Region,
   [ServiceType.VPC]: VPC,
+  [ServiceType.RDS]: RDS,
+  [ServiceType.APIGateway]: ApiGateway,
+  [ServiceType.DynamoDB]: DynamoDB,
+  [ServiceType.SNS]: SNS,
+  [ServiceType.ElastiCache]: ElastiCache,
+  [ServiceType.Kinesis]: Kinesis,
 }
 
 const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
@@ -102,6 +114,12 @@ const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
   [ServiceType.Client]: "client.svg",
   [ServiceType.Region]: "region.svg",
   [ServiceType.VPC]: "vpc.svg",
+  [ServiceType.RDS]: "rds.svg",
+  [ServiceType.APIGateway]: "apigateway.svg",
+  [ServiceType.DynamoDB]: "dynamodb.svg",
+  [ServiceType.SNS]: "sns.svg",
+  [ServiceType.ElastiCache]: "elasticache.svg",
+  [ServiceType.Kinesis]: "kinesis.svg",
 }
 
 const PALETTE = Object.values(ServiceType).map((service) => {
@@ -140,6 +158,19 @@ const board = (hovering: boolean) =>
 
 const moveNode = (id: string, parentId: string | null, x: number, y: number) => graphStore.place(id, { x, y }, parentId)
 
+/** Desktop = pointer + keyboard sized screens; below the breakpoint the page
+    switches to a full-screen board with slide-over drawers. */
+const useIsDesktop = () => {
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 768px)").matches)
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    const onChange = () => setIsDesktop(mq.matches)
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+  return isDesktop
+}
+
 export default function Layout() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [hovering, setHovering] = useState(false)
@@ -176,6 +207,12 @@ const SERVICE_CATEGORIES: Record<ServiceType, string> = {
   [ServiceType.Client]: "Actors",
   [ServiceType.Region]: "Frames",
   [ServiceType.VPC]: "Frames",
+  [ServiceType.RDS]: "Database",
+  [ServiceType.DynamoDB]: "Database",
+  [ServiceType.ElastiCache]: "Database",
+  [ServiceType.APIGateway]: "Integration",
+  [ServiceType.SNS]: "Integration",
+  [ServiceType.Kinesis]: "Integration",
 }
 
 const SERVICE_LABELS: Record<ServiceType, string> = {
@@ -194,6 +231,12 @@ const SERVICE_LABELS: Record<ServiceType, string> = {
   [ServiceType.Client]: "Client",
   [ServiceType.Region]: "Region",
   [ServiceType.VPC]: "VPC",
+  [ServiceType.RDS]: "RDS",
+  [ServiceType.APIGateway]: "API Gateway",
+  [ServiceType.DynamoDB]: "DynamoDB",
+  [ServiceType.SNS]: "SNS",
+  [ServiceType.ElastiCache]: "ElastiCache",
+  [ServiceType.Kinesis]: "Kinesis",
 }
 
 function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorProps) {
@@ -206,6 +249,8 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
   const [dockedMenu, setDockedMenu] = useState<{ at: MenuAt; id: string } | null>(null)
   const [search, setSearch] = useState("")
   const [blenderDragNodeId, setBlenderDragNodeId] = useState<string | null>(null)
+  const isDesktop = useIsDesktop()
+  const [mobilePanel, setMobilePanel] = useState<null | "services" | "graphs">(null)
 
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase()
@@ -580,16 +625,11 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
     return createPortal(<InstanceCtx.Provider value={inAsg}>{content}</InstanceCtx.Provider>, body, node.id)
   }
 
-  return (
-    <div className="w-screen h-screen overflow-hidden bg-background">
-      <Group orientation="vertical" className="w-full h-full">
-        <Panel defaultSize="85%" minSize="50%">
-          <Group orientation="horizontal" className="w-full h-full">
-            <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
-              <section
-                className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
-                style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
-              >
+  const sidebarSection = (
+    <section
+      className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
+      style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
+    >
                 <div className="text-sm font-semibold text-white">Services</div>
 
                 <input
@@ -615,16 +655,15 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
                   <div className="text-xs text-neutral-500 font-mono text-center mt-4">No results</div>
                 )}
               </section>
-            </Panel>
+  )
 
-            <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
-
-            <Panel defaultSize="85%" className="relative">
-              <div className="absolute right-4 top-4 z-50 flex flex-col gap-2">
-                <SimulationBar />
-                <GraphIo />
-              </div>
-              <Viewport>
+  const boardArea = (
+    <>
+      <div className="absolute right-4 top-4 z-50 flex flex-col gap-2">
+        <SimulationBar />
+        <GraphIo />
+      </div>
+      <Viewport>
                 <div
                   data-island-board
                   onPointerDownCapture={onSelectPointerDown}
@@ -648,38 +687,25 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
                   className={board(hovering)}
                 >
                   <EdgeLayer>{nodes.map(renderPlacedNode)}</EdgeLayer>
-                </div>
-              </Viewport>
-            </Panel>
-          </Group>
-        </Panel>
+      </div>
+    </Viewport>
+    </>
+  )
 
-        <Separator className="h-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
+  const dockedSection = (
+    <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4" onContextMenu={onDockedContextMenu}>
+        {docked.length === 0 && (
+          <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
+            Drag a graph from a service to view the graphs here
+          </div>
+        )}
 
-        <Panel
-          defaultSize="25%"
-          minSize="0%"
-          maxSize="40%"
-          className="bg-gray-50/5 flex flex-col"
-          onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes(GRAPH_MIME)) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = "copy"
-          }}
-          onDrop={onGraphDrop}
-        >
-          <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4" onContextMenu={onDockedContextMenu}>
-            {docked.length === 0 && (
-              <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
-                Drag a graph from a service to view the graphs here
-              </div>
-            )}
+        <DockedGraphPanel items={docked} onChange={updateDockedLayout} />
+    </section>
+  )
 
-            <DockedGraphPanel items={docked} onChange={updateDockedLayout} />
-          </section>
-        </Panel>
-      </Group>
-
+  const menus = (
+    <>
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.node)} onClose={() => setMenu(null)} />}
 
       {dockedMenu && (
@@ -737,6 +763,108 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
           }}
         />
       )}
+    </>
+  )
+
+  const drawerHeader = (title: string) => (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+      <span className="text-sm font-semibold text-white">{title}</span>
+      <button type="button" aria-label="Close" className="text-neutral-400 hover:text-white" onClick={() => setMobilePanel(null)}>
+        ✕
+      </button>
+    </div>
+  )
+
+  if (!isDesktop) {
+    return (
+      <div className="w-screen h-[100dvh] overflow-hidden bg-background">
+        <div className="relative w-full h-full">{boardArea}</div>
+
+        {/* Floating controls: services drawer, add menu, graphs drawer. */}
+        <div className="absolute left-3 top-3 z-40 flex flex-col gap-2">
+          <MobileFab label="Services" active={mobilePanel === "services"} onClick={() => setMobilePanel((p) => (p === "services" ? null : "services"))} icon={<SquaresFourIcon />} />
+          <MobileFab label="Add" onClick={() => setAddMenu({ x: window.innerWidth / 2, y: window.innerHeight / 3 })} icon={<PlusIcon />} />
+        </div>
+        <div className="absolute right-3 top-3 z-40">
+          <MobileFab label="Graphs" active={mobilePanel === "graphs"} onClick={() => setMobilePanel((p) => (p === "graphs" ? null : "graphs"))} icon={<ChartLineIcon />} />
+        </div>
+
+        {mobilePanel === "services" && (
+          <div className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[#181818] border-r border-border shadow-2xl flex flex-col">
+            {drawerHeader("Services")}
+            <div className="flex-1 min-h-0">{sidebarSection}</div>
+          </div>
+        )}
+
+        {mobilePanel === "graphs" && (
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 h-[45dvh] bg-[#181818] border-t border-border shadow-2xl flex flex-col"
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes(GRAPH_MIME)) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = "copy"
+            }}
+            onDrop={onGraphDrop}
+          >
+            {drawerHeader("Graphs")}
+            <div className="flex-1 min-h-0 flex flex-col">{dockedSection}</div>
+          </div>
+        )}
+
+        {menus}
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-screen h-screen overflow-hidden bg-background">
+      <Group orientation="vertical" className="w-full h-full">
+        <Panel defaultSize="85%" minSize="50%">
+          <Group orientation="horizontal" className="w-full h-full">
+            <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
+              {sidebarSection}
+            </Panel>
+
+            <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
+
+            <Panel defaultSize="85%" className="relative">
+              <div className="relative w-full h-full">{boardArea}</div>
+            </Panel>
+          </Group>
+        </Panel>
+
+        <Separator className="h-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-row-resize" />
+
+        <Panel
+          defaultSize="25%"
+          minSize="0%"
+          maxSize="40%"
+          className="bg-gray-50/5 flex flex-col"
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes(GRAPH_MIME)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "copy"
+          }}
+          onDrop={onGraphDrop}
+        >
+          {dockedSection}
+        </Panel>
+      </Group>
+
+      {menus}
     </div>
   )
 }
+
+const mobileFab = (active: boolean) =>
+  clsx(
+    "size-11 grid place-items-center rounded-full bg-neutral-800/95 text-white shadow-lg border border-neutral-700",
+    "active:scale-95 transition select-none",
+    active && "bg-blueprimary border-blueprimary",
+  )
+
+const MobileFab = ({ label, icon, onClick, active = false }: { label: string; icon: React.ReactNode; onClick: () => void; active?: boolean }) => (
+  <button type="button" aria-label={label} title={label} className={mobileFab(active)} onClick={onClick}>
+    {icon}
+  </button>
+)

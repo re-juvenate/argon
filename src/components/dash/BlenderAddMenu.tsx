@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { MagnifyingGlass, CaretRight } from "@phosphor-icons/react/dist/ssr"
 import { cn } from "cnfast"
@@ -18,17 +18,35 @@ interface BlenderAddMenuProps {
 
 const CATEGORY_ORDER = ["Compute", "Network", "Storage", "Database", "Integration", "Actors", "Frames"]
 
+/** Grace period before a flyout closes after the pointer leaves it — enough
+    to cross the gap between menu and flyout without it snapping shut. */
+const FLYOUT_CLOSE_MS = 250
+
 export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuProps) {
   const [search, setSearch] = useState("")
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
-  // flat selection cursor for keyboard nav
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<number | undefined>(undefined)
+
+  // Position computed from the measured menu size, then clamped so the menu
+  // always sits beside the cursor — never flipping off-screen.
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const width = menuRef.current?.offsetWidth ?? 240
+    const height = menuRef.current?.offsetHeight ?? 360
+    const left = clamp(at.x + 12 > window.innerWidth - width - 8 ? at.x - width - 12 : at.x + 12, 8, window.innerWidth - width - 8)
+    const top = clamp(at.y - 8, 8, Math.max(8, window.innerHeight - height - 8))
+    setPos({ left, top })
+  }, [at])
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  useEffect(() => () => window.clearTimeout(closeTimer.current), [])
 
   // Close on outside click
   useEffect(() => {
@@ -38,6 +56,15 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
     window.addEventListener("mousedown", onDown)
     return () => window.removeEventListener("mousedown", onDown)
   }, [onClose])
+
+  const scheduleFlyoutClose = useCallback(() => {
+    window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => setHoveredCategory(null), FLYOUT_CLOSE_MS)
+  }, [])
+
+  const cancelFlyoutClose = useCallback(() => {
+    window.clearTimeout(closeTimer.current)
+  }, [])
 
   const grouped = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -79,14 +106,10 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
     }
   }
 
-  // Smart position: flip if too close to right/bottom edge
-  const menuLeft = at.x + 248 > window.innerWidth ? at.x - 248 : at.x
-  const menuTop  = at.y + 420 > window.innerHeight ? at.y - 420 : at.y
-
   return createPortal(
     <div
       ref={menuRef}
-      style={{ left: menuLeft, top: menuTop }}
+      style={{ left: pos?.left ?? at.x, top: pos?.top ?? at.y, visibility: pos ? "visible" : "hidden" }}
       onKeyDown={handleKey}
       className="fixed z-[9999] w-60 rounded bg-[#1c1c1c] border border-[#333] shadow-2xl shadow-black/70 py-1 select-none"
     >
@@ -136,16 +159,17 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
           CATEGORY_ORDER.filter((cat) => grouped[cat]).map((cat) => {
             const catItems = grouped[cat] ?? []
             const isHovered = hoveredCategory === cat
-            const firstInCat = flatItems.indexOf(catItems[0])
             return (
               <div
                 key={cat}
                 className="relative"
-                onMouseEnter={() => setHoveredCategory(cat)}
-                onMouseLeave={() => setHoveredCategory(null)}
+                onMouseEnter={() => { cancelFlyoutClose(); setHoveredCategory(cat) }}
+                onMouseLeave={scheduleFlyoutClose}
               >
                 <button
                   type="button"
+                  data-cat={cat}
+                  onClick={() => setHoveredCategory((prev) => (prev === cat ? null : cat))}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-1.5 text-sm text-neutral-200 transition-colors",
                     isHovered ? "bg-[#3a7cc1]" : "hover:bg-[#2a2a2a]",
@@ -162,8 +186,8 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
                     parentRef={menuRef}
                     categoryLabel={cat}
                     onSelect={commit}
-                    cursorOffset={firstInCat}
-                    cursor={cursor}
+                    onEnter={cancelFlyoutClose}
+                    onLeave={scheduleFlyoutClose}
                   />
                 )}
               </div>
@@ -176,34 +200,39 @@ export default function BlenderAddMenu({ at, items, onClose }: BlenderAddMenuPro
   )
 }
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
 interface FlyoutProps {
   items: AddMenuItem[]
   parentRef: React.RefObject<HTMLDivElement | null>
   categoryLabel: string
   onSelect: (item: AddMenuItem) => void
-  cursorOffset: number
-  cursor: number
+  onEnter: () => void
+  onLeave: () => void
 }
 
-function FlyoutSubmenu({ items, parentRef, categoryLabel, onSelect }: FlyoutProps) {
-  const [pos, setPos] = useState({ top: 0, left: 0 })
+function FlyoutSubmenu({ items, parentRef, categoryLabel, onSelect, onEnter, onLeave }: FlyoutProps) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!parentRef.current) return
     const parentRect = parentRef.current.getBoundingClientRect()
     // Find the button for this category inside the parent
     const btn = parentRef.current.querySelector(`button[data-cat="${categoryLabel}"]`) as HTMLElement | null
     const btnTop = btn ? btn.getBoundingClientRect().top : parentRect.top
-    const left = parentRect.right + 4
-    const top = btnTop
-    // Flip up if needed
-    const adjTop = top + items.length * 30 > window.innerHeight ? window.innerHeight - items.length * 30 - 8 : top
-    setPos({ top: adjTop, left })
+    const height = ref.current?.offsetHeight ?? items.length * 30
+    const left = parentRect.right
+    const top = clamp(btnTop, 8, Math.max(8, window.innerHeight - height - 8))
+    setPos({ top, left })
   }, [parentRef, categoryLabel, items.length])
 
   return createPortal(
     <div
-      style={{ top: pos.top, left: pos.left }}
+      ref={ref}
+      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, visibility: pos ? "visible" : "hidden" }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
       className="fixed z-[10000] w-52 rounded bg-[#1c1c1c] border border-[#333] shadow-2xl shadow-black/70 py-1"
     >
       {items.map((item) => (

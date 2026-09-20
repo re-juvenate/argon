@@ -35,6 +35,21 @@ const zoomAt = (prev: Transform, cursorX: number, cursorY: number, deltaY: numbe
   }
 }
 
+/** Pinch zoom: scale by the finger-distance ratio, keeping the midpoint
+    stationary in board coordinates (same invariant as zoomAt). */
+const pinchAt = (
+  prev: Transform,
+  prevDist: number,
+  prevMid: { x: number; y: number },
+  dist: number,
+  mid: { x: number; y: number },
+): Transform => {
+  const scale = clamp(prev.scale * (dist / Math.max(prevDist, 1)), MIN_SCALE, MAX_SCALE)
+  const bx = (prevMid.x - prev.x) / prev.scale
+  const by = (prevMid.y - prev.y) / prev.scale
+  return { scale, x: mid.x - bx * scale, y: mid.y - by * scale }
+}
+
 const controlButton =
   "size-8 grid place-items-center rounded bg-neutral-800/90 text-white text-sm font-mono select-none hover:bg-neutral-700 active:scale-95 transition border border-neutral-700"
 
@@ -60,13 +75,19 @@ const findScrollable = (target: EventTarget | null, boundary: HTMLElement): HTML
 
 /**
  * Pannable / zoomable wrapper around the island board.
- * Middle-drag pans, wheel zooms toward the cursor. Everything inside lives in
- * board coordinates; the viewport owns exactly one transform.
+ * Middle-drag or one finger pans, wheel / pinch zooms toward the cursor.
+ * Everything inside lives in board coordinates; the viewport owns exactly one
+ * transform. Touches on islands never reach here (nodes stop propagation),
+ * so gestures only own the empty canvas.
  */
 export default function Viewport({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [transform, setTransform] = useState<Transform>(IDENTITY)
   const [panning, setPanning] = useState(false)
+  const touchPointers = useRef(new Map<number, { x: number; y: number }>())
+
+  type Gesture = { mode: "pan"; lastX: number; lastY: number } | { mode: "pinch"; dist: number; mid: { x: number; y: number } }
+  const gesture = useRef<Gesture | null>(null)
 
   useEffect(() => {
     if (ref.current) {
@@ -123,14 +144,75 @@ export default function Viewport({ children }: { children: ReactNode }) {
     el.addEventListener("pointerup", onUp)
   }
 
+  // Touch: one finger pans, two fingers pinch-zoom. Window-level listeners so
+  // the gesture survives the finger leaving the element.
+  const onTouchDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const el = ref.current
+    if (!el) return
+
+    const points = [...touchPointers.current.values()]
+    gesture.current =
+      points.length >= 2
+        ? {
+            mode: "pinch",
+            dist: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y),
+            mid: { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 },
+          }
+        : { mode: "pan", lastX: e.clientX, lastY: e.clientY }
+
+    const onMove = (ev: PointerEvent) => {
+      if (!touchPointers.current.has(ev.pointerId)) return
+      touchPointers.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+      const g = gesture.current
+      if (!g) return
+      if (g.mode === "pan") {
+        const dx = ev.clientX - g.lastX
+        const dy = ev.clientY - g.lastY
+        g.lastX = ev.clientX
+        g.lastY = ev.clientY
+        setTransform((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy }))
+      } else {
+        const pts = [...touchPointers.current.values()]
+        if (pts.length < 2) return
+        const rect = el.getBoundingClientRect()
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+        const mid = { x: (pts[0].x + pts[1].x) / 2 - rect.left, y: (pts[0].y + pts[1].y) / 2 - rect.top }
+        const prevMid = { x: g.mid.x - rect.left, y: g.mid.y - rect.top }
+        setTransform((prev) => pinchAt(prev, g.dist, prevMid, dist, mid))
+        g.dist = dist
+        g.mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+      }
+    }
+    const onUp = (ev: PointerEvent) => {
+      touchPointers.current.delete(ev.pointerId)
+      const remaining = [...touchPointers.current.values()]
+      if (remaining.length === 0) {
+        gesture.current = null
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+        window.removeEventListener("pointercancel", onUp)
+      } else if (remaining.length === 1 && gesture.current?.mode === "pinch") {
+        gesture.current = { mode: "pan", lastX: remaining[0].x, lastY: remaining[0].y }
+      }
+    }
+
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+  }
+
   return (
     <div
       ref={ref}
-      onPointerDown={startPan}
+      onPointerDown={(e) => {
+        if (e.pointerType === "touch") onTouchDown(e)
+        startPan(e)
+      }}
       onMouseDown={(e) => {
         if (e.button === 1) e.preventDefault()
       }}
-      className={clsx("relative w-full h-full overflow-hidden bg-background", panning && "cursor-grabbing")}
+      className={clsx("relative w-full h-full overflow-hidden bg-background touch-none", panning && "cursor-grabbing")}
     >
       {/* The board rectangle itself: huge and centered on the transform
           origin, so panning never runs the drop surface out from under the

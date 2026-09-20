@@ -27,6 +27,12 @@ import { model as aurora } from "./aurora/throughput";
 import { model as client } from "./client/throughput";
 import { model as region } from "./region/throughput";
 import { model as vpc } from "./vpc/throughput";
+import { model as rds } from "./rds/throughput";
+import { model as apiGateway } from "./apigateway/throughput";
+import { model as dynamodb } from "./dynamodb/throughput";
+import { model as sns } from "./sns/throughput";
+import { model as elasticache } from "./elasticache/throughput";
+import { model as kinesis } from "./kinesis/throughput";
 import { model as ec2Latency } from "./ec2/latency";
 import { model as ecsLatency } from "./ecs/latency";
 import { model as asgLatency } from "./asg/latency";
@@ -40,6 +46,12 @@ import { model as auroraLatency } from "./aurora/latency";
 import { model as clientLatency } from "./client/latency";
 import { model as regionLatency } from "./region/latency";
 import { model as vpcLatency } from "./vpc/latency";
+import { model as rdsLatency } from "./rds/latency";
+import { model as apiGatewayLatency } from "./apigateway/latency";
+import { model as dynamodbLatency } from "./dynamodb/latency";
+import { model as snsLatency } from "./sns/latency";
+import { model as elasticacheLatency } from "./elasticache/latency";
+import { model as kinesisLatency } from "./kinesis/latency";
 import { model as ec2Drop } from "./ec2/drop";
 import { model as ecsDrop } from "./ecs/drop";
 import { model as asgDrop } from "./asg/drop";
@@ -53,6 +65,12 @@ import { model as auroraDrop } from "./aurora/drop";
 import { model as clientDrop } from "./client/drop";
 import { model as regionDrop } from "./region/drop";
 import { model as vpcDrop } from "./vpc/drop";
+import { model as rdsDrop } from "./rds/drop";
+import { model as apiGatewayDrop } from "./apigateway/drop";
+import { model as dynamodbDrop } from "./dynamodb/drop";
+import { model as snsDrop } from "./sns/drop";
+import { model as elasticacheDrop } from "./elasticache/drop";
+import { model as kinesisDrop } from "./kinesis/drop";
 
 // Per-service registries, one per objective (throughput, latency, drop), keyed by ServiceType.
 // Registry instead of a switch: `satisfies` makes it exhaustive over ServiceType while keeping
@@ -73,6 +91,12 @@ export const THROUGHPUT_MODELS = {
   [ServiceType.Client]: client,
   [ServiceType.Region]: region,
   [ServiceType.VPC]: vpc,
+  [ServiceType.RDS]: rds,
+  [ServiceType.APIGateway]: apiGateway,
+  [ServiceType.DynamoDB]: dynamodb,
+  [ServiceType.SNS]: sns,
+  [ServiceType.ElastiCache]: elasticache,
+  [ServiceType.Kinesis]: kinesis,
 } satisfies Record<ServiceType, ServiceModel<object, unknown>>;
 
 export type ServiceConfig<T extends ServiceType> = Parameters<(typeof THROUGHPUT_MODELS)[T]["evaluate"]>[0];
@@ -114,6 +138,12 @@ export const LATENCY_MODELS = {
   [ServiceType.Client]: clientLatency,
   [ServiceType.Region]: regionLatency,
   [ServiceType.VPC]: vpcLatency,
+  [ServiceType.RDS]: rdsLatency,
+  [ServiceType.APIGateway]: apiGatewayLatency,
+  [ServiceType.DynamoDB]: dynamodbLatency,
+  [ServiceType.SNS]: snsLatency,
+  [ServiceType.ElastiCache]: elasticacheLatency,
+  [ServiceType.Kinesis]: kinesisLatency,
 } satisfies Record<ServiceType, LatencyModel<object, unknown>>;
 
 export function latencyModel<T extends ServiceType>(type: T): (typeof LATENCY_MODELS)[T] {
@@ -146,6 +176,12 @@ export const DROP_MODELS = {
   [ServiceType.Client]: clientDrop,
   [ServiceType.Region]: regionDrop,
   [ServiceType.VPC]: vpcDrop,
+  [ServiceType.RDS]: rdsDrop,
+  [ServiceType.APIGateway]: apiGatewayDrop,
+  [ServiceType.DynamoDB]: dynamodbDrop,
+  [ServiceType.SNS]: snsDrop,
+  [ServiceType.ElastiCache]: elasticacheDrop,
+  [ServiceType.Kinesis]: kinesisDrop,
 } satisfies Record<ServiceType, DropModel<object, unknown>>;
 
 export function dropModel<T extends ServiceType>(type: T): (typeof DROP_MODELS)[T] {

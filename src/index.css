@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @source "../node_modules/@tremor/react/dist";
 
+/* Tremor builds its chart color classes at runtime (`text-${color}-${shade}` in
+   getColorClassNames), so no scanner can ever see them as literals — the SVG
+   gradient's currentColor falls back to the inherited text color and the area
+   fill disappears. Safelist what the charts actually use. */
+@source inline("{dark:}{text,stroke,fill}-emerald-{400,500}");
+
 @theme inline {
   --color-node: #303030;
   --color-background: #1a1a1a;

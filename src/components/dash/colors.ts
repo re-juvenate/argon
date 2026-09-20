@@ -18,4 +18,5 @@ export const SERVICE_COLORS: Record<ServiceType, string> = {
   [ServiceType.EFS]: "#408723",
   [ServiceType.Client]: "#6e6e1d",
   [ServiceType.Region]: "#147eba",
+  [ServiceType.VPC]: "#147eba",
 }

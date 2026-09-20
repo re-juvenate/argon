@@ -1,6 +1,7 @@
 import Layout from "./components/dash/Layout"
 import Graph, { type ChartDataItem } from "./components/dash/nodeoptions/graph"
-import AwsMap from "./components/modals/Map"
+import ColorButton from "./components/dash/ColorButton"
+
 const App = () => {
   const mockChartData: ChartDataItem[] = [
     { time: "10:00", Throughput: 120, Time: 45 },
@@ -15,6 +16,7 @@ const App = () => {
   return (
     <div className="bg-background h-screen w-screen overflow-hidden">
       <Layout />
+      {/*<ColorButton />*/}
     </div>
   )
 }

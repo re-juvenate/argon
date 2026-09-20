@@ -26,6 +26,7 @@ import { model as route53 } from "./route53/throughput";
 import { model as aurora } from "./aurora/throughput";
 import { model as client } from "./client/throughput";
 import { model as region } from "./region/throughput";
+import { model as vpc } from "./vpc/throughput";
 import { model as ec2Latency } from "./ec2/latency";
 import { model as ecsLatency } from "./ecs/latency";
 import { model as asgLatency } from "./asg/latency";
@@ -38,6 +39,7 @@ import { model as route53Latency } from "./route53/latency";
 import { model as auroraLatency } from "./aurora/latency";
 import { model as clientLatency } from "./client/latency";
 import { model as regionLatency } from "./region/latency";
+import { model as vpcLatency } from "./vpc/latency";
 import { model as ec2Drop } from "./ec2/drop";
 import { model as ecsDrop } from "./ecs/drop";
 import { model as asgDrop } from "./asg/drop";
@@ -50,6 +52,7 @@ import { model as route53Drop } from "./route53/drop";
 import { model as auroraDrop } from "./aurora/drop";
 import { model as clientDrop } from "./client/drop";
 import { model as regionDrop } from "./region/drop";
+import { model as vpcDrop } from "./vpc/drop";
 
 // Per-service registries, one per objective (throughput, latency, drop), keyed by ServiceType.
 // Registry instead of a switch: `satisfies` makes it exhaustive over ServiceType while keeping
@@ -69,6 +72,7 @@ export const THROUGHPUT_MODELS = {
   [ServiceType.EFS]: s3,
   [ServiceType.Client]: client,
   [ServiceType.Region]: region,
+  [ServiceType.VPC]: vpc,
 } satisfies Record<ServiceType, ServiceModel<object, unknown>>;
 
 export type ServiceConfig<T extends ServiceType> = Parameters<(typeof THROUGHPUT_MODELS)[T]["evaluate"]>[0];
@@ -109,6 +113,7 @@ export const LATENCY_MODELS = {
   [ServiceType.EFS]: s3Latency,
   [ServiceType.Client]: clientLatency,
   [ServiceType.Region]: regionLatency,
+  [ServiceType.VPC]: vpcLatency,
 } satisfies Record<ServiceType, LatencyModel<object, unknown>>;
 
 export function latencyModel<T extends ServiceType>(type: T): (typeof LATENCY_MODELS)[T] {
@@ -140,6 +145,7 @@ export const DROP_MODELS = {
   [ServiceType.EFS]: s3Drop,
   [ServiceType.Client]: clientDrop,
   [ServiceType.Region]: regionDrop,
+  [ServiceType.VPC]: vpcDrop,
 } satisfies Record<ServiceType, DropModel<object, unknown>>;
 
 export function dropModel<T extends ServiceType>(type: T): (typeof DROP_MODELS)[T] {

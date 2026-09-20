@@ -35,6 +35,7 @@ export enum ServiceType {
   EFS = "efs",
   Client = "client",
   Region = "region",
+  VPC = "vpc",
 }
 
 export interface ThroughputContext {

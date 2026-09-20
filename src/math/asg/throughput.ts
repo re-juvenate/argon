@@ -18,9 +18,10 @@ export interface ASGConfig {
   minSize?: number;
   maxSize?: number;
   targetUtilization?: number;
+  showAnimations?: boolean;
 }
 
-export const ASG_DEFAULTS: Required<ASGConfig> = { inServiceCount: 1, minSize: 0, maxSize: 0, targetUtilization: 0.5 };
+export const ASG_DEFAULTS: Required<ASGConfig> = { inServiceCount: 1, minSize: 0, maxSize: 0, targetUtilization: 0.5, showAnimations: true };
 
 export interface ASGState {
   scale: RampState;

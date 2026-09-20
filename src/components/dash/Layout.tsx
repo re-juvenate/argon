@@ -33,6 +33,7 @@ import SQS from "./nodes/sqs/SQS"
 import ELB from "./nodes/elb/ELB"
 import ASG from "./frames/asg/ASG"
 import Region from "./frames/region/Region"
+import VPC from "./frames/vpc/vpc"
 import Client from "./nodes/client/Client"
 import Aurora from "./nodes/aurora/aurora"
 import Cloudfront from "./nodes/cloudfront/cloudfront"
@@ -80,6 +81,7 @@ const SERVICES: Record<ServiceType, ComponentType<NodeComponentProps>> = {
   [ServiceType.EFS]: EFS,
   [ServiceType.Client]: Client,
   [ServiceType.Region]: Region,
+  [ServiceType.VPC]: VPC,
 }
 
 const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
@@ -97,6 +99,7 @@ const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
   [ServiceType.EFS]: "efs.svg",
   [ServiceType.Client]: "client.svg",
   [ServiceType.Region]: "region.svg",
+  [ServiceType.VPC]: "vpc.svg",
 }
 
 const PALETTE = Object.values(ServiceType).map((service) => {
@@ -160,12 +163,44 @@ interface EditorProps {
   setHovering: React.Dispatch<React.SetStateAction<boolean>>
 }
 
+const SERVICE_CATEGORIES: Record<ServiceType, string> = {
+  [ServiceType.EC2]: "Compute",
+  [ServiceType.ECS]: "Compute",
+  [ServiceType.ASG]: "Compute",
+  [ServiceType.Lambda]: "Compute",
+  [ServiceType.LB]: "Network",
+  [ServiceType.CloudFront]: "Network",
+  [ServiceType.Route53]: "Network",
+  [ServiceType.S3]: "Storage",
+  [ServiceType.EBS]: "Storage",
+  [ServiceType.EFS]: "Storage",
+  [ServiceType.Aurora]: "Database",
+  [ServiceType.SQS]: "Integration",
+  [ServiceType.Client]: "Actors",
+  [ServiceType.Region]: "Frames",
+  [ServiceType.VPC]: "Frames",
+}
+
 function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorProps) {
   const { frameBodies } = useEditor()
   const { nodes } = useGraph()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
   const [menu, setMenu] = useState<{ at: MenuAt; node: GraphNode } | null>(null)
+  const [search, setSearch] = useState("")
+
+  const filteredCategories = useMemo(() => {
+    const q = search.toLowerCase()
+    const result: Record<string, typeof PALETTE> = {}
+    for (const item of PALETTE) {
+      if (!item.service.toLowerCase().includes(q)) continue
+      const cat = SERVICE_CATEGORIES[item.service] || "Other"
+      if (!result[cat]) result[cat] = []
+      result[cat].push(item)
+    }
+    return result
+  }, [search])
+
   const updateDockedLayout = useCallback((changed: Docked[]) => {
     setDocked((items) => {
       let moved = false
@@ -307,7 +342,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
           if (box && box.w > 5 && box.h > 5) {
             setSelectedIds((prev) => {
               const selected = new Set(ev.shiftKey ? prev : [])
-              document.querySelectorAll("[data-island-id]").forEach((el) => {
+              document.querySelectorAll("[data-island-id] > *").forEach((el) => {
                 const rect = el.getBoundingClientRect()
                 if (
                   rect.right >= box.x &&
@@ -315,7 +350,8 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
                   rect.bottom >= box.y &&
                   rect.top <= box.y + box.h
                 ) {
-                  const elId = (el as HTMLElement).dataset.islandId
+                  const island = el.closest<HTMLElement>("[data-island-id]")
+                  const elId = island?.dataset.islandId
                   if (elId) selected.add(elId)
                 }
               })
@@ -401,23 +437,42 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       <Group orientation="vertical" className="w-full h-full">
         <Panel defaultSize="85%" minSize="50%">
           <Group orientation="horizontal" className="w-full h-full">
-            <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
-              <section className="h-full w-full p-4 flex flex-col gap-2 overflow-y-auto">
-                <div className="text-sm font-semibold mb-2 text-white">Services</div>
+              <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
+                <section 
+                  className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
+                  style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
+                >
+                  <div className="text-sm font-semibold text-white">Services</div>
+                  
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-neutral-800 text-white rounded px-3 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blueprimary transition-all border border-neutral-700"
+                  />
 
-                {PALETTE.map(({ service, icon }) => (
-                  <div
-                    key={service}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, service)}
-                    className={sidebarItem}
-                  >
-                    {icon && <img src={icon} alt="" className={sidebarIcon} />}
-                    {service}
-                  </div>
-                ))}
-              </section>
-            </Panel>
+                  {Object.entries(filteredCategories).map(([category, items]) => (
+                    <div key={category} className="flex flex-col gap-2">
+                      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mt-2 mb-1">{category}</div>
+                      {items.map(({ service, icon }) => (
+                        <div
+                          key={service}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, service)}
+                          className={sidebarItem}
+                        >
+                          {icon && <img src={icon} alt="" className={sidebarIcon} />}
+                          {service}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {Object.keys(filteredCategories).length === 0 && (
+                    <div className="text-xs text-neutral-500 font-mono text-center mt-4">No results</div>
+                  )}
+                </section>
+              </Panel>
 
             <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 

@@ -10,6 +10,7 @@ import { ServiceType } from "../../../../types/math"
 import type { SocketType } from "../../../../types/nodes"
 import { ASG_DEFAULTS, pendingInstances, type ASGConfig, type ASGState } from "#math/asg/throughput"
 import Slider from "../../nodeoptions/slider"
+import Boolean from "../../nodeoptions/boolean"
 import { useNodeResult } from "../../Simulation"
 
 gsap.registerPlugin(useGSAP)
@@ -201,12 +202,21 @@ const ASG = ({ style, id, count }: { style?: CSSProperties; id?: string; count?:
             value={config.targetUtilization}
             onChange={(targetUtilization) => patch({ targetUtilization })}
           />
+          <Boolean
+            label="Show Instances"
+            checked={config.showAnimations ?? ASG_DEFAULTS.showAnimations}
+            onChange={(showAnimations) => patch({ showAnimations })}
+          />
         </>
       }
     >
-      <div ref={containerRef} className="order-1 flex flex-col gap-2">
-        {instances.map((instance) => (
-          <div key={instance} data-instance={instance} className="itemmmmy flex flex-col gap-2">
+      <div 
+        ref={containerRef} 
+        className={`order-1 flex flex-col gap-2 ${config.showAnimations ?? ASG_DEFAULTS.showAnimations ? 'overflow-y-auto max-h-[500px] scrollbar-thin' : 'hidden'}`}
+        style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
+      >
+        {(config.showAnimations ?? ASG_DEFAULTS.showAnimations) && instances.map((instance) => (
+          <div key={instance} data-instance={instance} className="itemmmmy flex flex-col gap-2 shrink-0">
             {members.length === 0 ? (
               <div className="min-w-48 h-16 border border-dashed border-[#555555] mt-7" />
             ) : (

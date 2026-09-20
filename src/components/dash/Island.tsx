@@ -143,6 +143,28 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         moveNode(nodeId, parentId, x, y)
       }
 
+      const onMultiDrag = (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        if (detail.source === getNodeId()) return
+        if (!el.closest("[data-selected]")) return
+
+        gsap.set(el, {
+          x: `+=${detail.dx}`,
+          y: `+=${detail.dy}`,
+        })
+      }
+
+      const onMultiDrop = (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        if (detail.source === getNodeId()) return
+        if (!el.closest("[data-selected]")) return
+
+        settleDrop()
+      }
+
+      window.addEventListener("multi-drag", onMultiDrag)
+      window.addEventListener("multi-drop", onMultiDrop)
+
       const [instance] = Draggable.create(el, {
         type: "x,y",
         trigger,
@@ -159,20 +181,42 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
           bringToFront(this.target as HTMLElement, flow ? NODE_LAYER : 0)
         },
 
+        onDrag(this: Draggable) {
+          if (el.closest("[data-selected]")) {
+            window.dispatchEvent(
+              new CustomEvent("multi-drag", {
+                detail: { dx: this.deltaX, dy: this.deltaY, source: getNodeId() },
+              })
+            )
+          }
+        },
+
         onDragEnd(this: Draggable) {
           queueMicrotask(() => {
             if (!this.isThrowing) {
               settleDrop()
+              if (el.closest("[data-selected]")) {
+                window.dispatchEvent(
+                  new CustomEvent("multi-drop", { detail: { source: getNodeId() } })
+                )
+              }
             }
           })
         },
 
         onThrowComplete(this: Draggable) {
           settleDrop()
+          if (el.closest("[data-selected]")) {
+            window.dispatchEvent(
+              new CustomEvent("multi-drop", { detail: { source: getNodeId() } })
+            )
+          }
         },
       })
 
       return () => {
+        window.removeEventListener("multi-drag", onMultiDrag)
+        window.removeEventListener("multi-drop", onMultiDrop)
         instance.kill()
         gsap.killTweensOf(el)
       }

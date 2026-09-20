@@ -60,6 +60,7 @@ import { SimulationProvider } from "./Simulation"
 import SimulationBar from "./SimulationBar"
 import GraphIo from "./GraphIo"
 import Completion from "./Completion"
+import ColorButton from "./ColorButton"
 import BlenderAddMenu from "./BlenderAddMenu"
 import type { GraphNode } from "#graph/types"
 
@@ -660,9 +661,14 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
 
   const boardArea = (
     <>
-      <div className="absolute right-4 top-4 z-50 flex flex-col gap-2">
-        <SimulationBar />
-        <GraphIo />
+      <div className="absolute right-4 top-4 z-50 flex items-start gap-2">
+        <ColorButton compact />
+        <div className="flex flex-col items-end gap-2">
+          <SimulationBar />
+          <GraphIo />
+        </div>
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 top-4 z-50">
         <Completion />
       </div>
       <Viewport>

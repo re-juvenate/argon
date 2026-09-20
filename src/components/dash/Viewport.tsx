@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import clsx from "clsx"
+import { MinusIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
 
 const MIN_SCALE = 0.4
 const MAX_SCALE = 2.5
@@ -47,10 +48,7 @@ const findScrollable = (target: EventTarget | null, boundary: HTMLElement): HTML
   while (node && node !== boundary) {
     if (node instanceof HTMLElement) {
       const { overflowY } = getComputedStyle(node)
-      if (
-        (overflowY === "auto" || overflowY === "scroll") &&
-        node.scrollHeight > node.clientHeight
-      ) {
+      if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
         return node
       }
     }
@@ -125,10 +123,7 @@ export default function Viewport({ children }: { children: ReactNode }) {
       onMouseDown={(e) => {
         if (e.button === 1) e.preventDefault()
       }}
-      className={clsx(
-        "relative w-full h-full overflow-hidden bg-background",
-        panning && "cursor-grabbing",
-      )}
+      className={clsx("relative w-full h-full overflow-hidden bg-background", panning && "cursor-grabbing")}
     >
       {/* The board rectangle itself: huge and centered on the transform
           origin, so panning never runs the drop surface out from under the
@@ -159,11 +154,11 @@ export default function Viewport({ children }: { children: ReactNode }) {
             })
           }
         >
-          −
+          <PlusIcon />
         </button>
         <button
           type="button"
-          className={controlButton}
+          className="h-8 min-w-8 px-2 grid place-items-center rounded bg-neutral-800/90 text-white text-sm font-mono select-none hover:bg-neutral-700 active:scale-95 transition border border-neutral-700"
           title="Reset view"
           onClick={() => setTransform(IDENTITY)}
         >
@@ -180,7 +175,7 @@ export default function Viewport({ children }: { children: ReactNode }) {
             })
           }
         >
-          +
+          <MinusIcon />
         </button>
       </div>
     </div>

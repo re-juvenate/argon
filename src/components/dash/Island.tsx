@@ -146,7 +146,10 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
       const onMultiDrag = (e: Event) => {
         const detail = (e as CustomEvent).detail
         if (detail.source === getNodeId()) return
-        if (!el.closest("[data-selected]")) return
+
+        const selfSelected = el.closest("[data-selected]")
+        if (!selfSelected) return
+        if (selfSelected.parentElement?.closest("[data-selected]")) return
 
         gsap.set(el, {
           x: `+=${detail.dx}`,
@@ -157,7 +160,10 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
       const onMultiDrop = (e: Event) => {
         const detail = (e as CustomEvent).detail
         if (detail.source === getNodeId()) return
-        if (!el.closest("[data-selected]")) return
+
+        const selfSelected = el.closest("[data-selected]")
+        if (!selfSelected) return
+        if (selfSelected.parentElement?.closest("[data-selected]")) return
 
         settleDrop()
       }
@@ -182,12 +188,19 @@ export const useIsland = <T extends HTMLElement = HTMLDivElement>({
         },
 
         onDrag(this: Draggable) {
-          if (el.closest("[data-selected]")) {
+          const selfSelected = el.closest("[data-selected]")
+          const hasSelectedParent = selfSelected?.parentElement?.closest("[data-selected]")
+
+          if (selfSelected) {
             window.dispatchEvent(
               new CustomEvent("multi-drag", {
                 detail: { dx: this.deltaX, dy: this.deltaY, source: getNodeId() },
               })
             )
+
+            if (hasSelectedParent) {
+              gsap.set(el, { x: `-=${this.deltaX}`, y: `-=${this.deltaY}` })
+            }
           }
         },
 

@@ -115,11 +115,7 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5",
             "text-white flex-1 min-w-0",
             fill ? "h-full min-h-0" : "h-80",
             isLowHeight ? "mt-0 pl-4" : "mt-6",
-            "[&_.recharts-area-curve]:stroke-(--graph-color)!",
-            "[&_linearGradient]:text-(--graph-color)!",
-            "[&_.recharts-dot]:stroke-(--graph-color)! [&_.recharts-dot]:fill-(--graph-color)!",
           )}
-          style={{ "--graph-color": color } as CSSProperties}
           data={chartdata}
           index="time"
           showLegend={false}
@@ -128,7 +124,7 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5",
           showGradient={true}
           startEndOnly={true}
           categories={["Throughput"]}
-          colors={["blue"]}
+          colors={["emerald"]}
           customTooltip={(props) => {
             if (props.active) {
               setHoverData((prev: any) => {

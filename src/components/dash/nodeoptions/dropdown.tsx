@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useId, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "cnfast"
+import { CaretDown } from "@phosphor-icons/react/dist/ssr"
 
 export interface Option {
   name: string
@@ -25,7 +27,9 @@ export default function Dropdown({ label = "Options", options = [], value }: Ble
   }, [value, options])
   const [searchQuery, setSearchQuery] = useState("")
   const [openUp, setOpenUp] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const listboxRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
 
@@ -48,7 +52,9 @@ export default function Dropdown({ label = "Options", options = [], value }: Ble
       searchInputRef.current?.focus()
       const trigger = dropdownRef.current
       if (trigger) {
-        const below = window.innerHeight - trigger.getBoundingClientRect().bottom
+        const bounds = trigger.getBoundingClientRect()
+        setRect(bounds)
+        const below = window.innerHeight - bounds.bottom
         setOpenUp(below < 220)
       }
     } else {
@@ -60,13 +66,28 @@ export default function Dropdown({ label = "Options", options = [], value }: Ble
     if (!isOpen) return
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        listboxRef.current &&
+        !listboxRef.current.contains(target)
+      ) {
         setIsOpen(false)
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    const handleScroll = (e: WheelEvent) => {
+      const target = e.target as Node
+      if (listboxRef.current && listboxRef.current.contains(target)) return
+      setIsOpen(false)
+    }
+    window.addEventListener("wheel", handleScroll, { passive: true })
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      window.removeEventListener("wheel", handleScroll)
+    }
   }, [isOpen])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -142,29 +163,23 @@ export default function Dropdown({ label = "Options", options = [], value }: Ble
         )}
       >
         <span>{currentOption?.name}</span>
-
-        <svg
-          className={cn("w-3 h-3 transition-colors", isOpen ? "text-white" : "text-[#a3a3a3]")}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 010 1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <CaretDown weight="fill" className={cn("w-3.5 h-3.5 transition-colors", isOpen ? "text-white" : "text-[#a3a3a3]")} />
       </button>
 
-      {isOpen && (
+      {isOpen && rect && createPortal(
         <div
           id={listboxId}
+          ref={listboxRef}
           role="listbox"
           aria-label={label}
+          style={{
+            position: "fixed",
+            left: rect.left,
+            width: rect.width,
+            ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+          }}
           className={cn(
-            "absolute left-0 w-full bg-[#181818] border border-[#101010] rounded shadow-2xl z-50 flex flex-col max-h-[50vh]",
-            openUp ? "bottom-full mb-1" : "top-full mt-1",
+            "bg-[#181818] border border-[#101010] rounded shadow-2xl z-50 flex flex-col max-h-[50vh]",
           )}
         >
           <div className="flex flex-col border-b border-[#282828] p-1 gap-1 sticky top-0 bg-[#181818] z-10">
@@ -213,7 +228,8 @@ export default function Dropdown({ label = "Options", options = [], value }: Ble
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

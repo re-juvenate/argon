@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   useState,
   type CSSProperties,
   type ComponentType,
@@ -123,7 +124,7 @@ const ghostImage = (service: ServiceType): HTMLImageElement => {
 }
 
 const sidebarItem = clsx(
-  "flex items-center gap-2.5 px-3 py-2 bg-neutral-800 text-white rounded text-sm font-mono select-none",
+  "flex items-center gap-2.5 px-3 py-2 bg-neutral-800 text-white rounded text-sm font-sans font-medium select-none",
   "cursor-grab active:cursor-grabbing hover:bg-neutral-700 transition-colors",
 )
 
@@ -145,12 +146,7 @@ export default function Layout() {
   return (
     <SimulationProvider>
       <EditorProvider moveNode={moveNode}>
-        <Editor
-          selectedIds={selectedIds}
-          setSelectedIds={setSelectedIds}
-          hovering={hovering}
-          setHovering={setHovering}
-        />
+        <Editor selectedIds={selectedIds} setSelectedIds={setSelectedIds} hovering={hovering} setHovering={setHovering} />
       </EditorProvider>
     </SimulationProvider>
   )
@@ -181,12 +177,31 @@ const SERVICE_CATEGORIES: Record<ServiceType, string> = {
   [ServiceType.VPC]: "Frames",
 }
 
+const SERVICE_LABELS: Record<ServiceType, string> = {
+  [ServiceType.EC2]: "EC2",
+  [ServiceType.ECS]: "ECS",
+  [ServiceType.ASG]: "Auto Scaling Group",
+  [ServiceType.Lambda]: "Lambda",
+  [ServiceType.LB]: "Load Balancer",
+  [ServiceType.CloudFront]: "CloudFront",
+  [ServiceType.Route53]: "Route 53",
+  [ServiceType.S3]: "S3",
+  [ServiceType.EBS]: "EBS",
+  [ServiceType.EFS]: "EFS",
+  [ServiceType.Aurora]: "Aurora",
+  [ServiceType.SQS]: "SQS",
+  [ServiceType.Client]: "Client",
+  [ServiceType.Region]: "Region",
+  [ServiceType.VPC]: "VPC",
+}
+
 function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorProps) {
   const { frameBodies } = useEditor()
   const { nodes } = useGraph()
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
   const [menu, setMenu] = useState<{ at: MenuAt; node: GraphNode } | null>(null)
+  const [dockedMenu, setDockedMenu] = useState<{ at: MenuAt; id: string } | null>(null)
   const [search, setSearch] = useState("")
 
   const filteredCategories = useMemo(() => {
@@ -221,7 +236,17 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       while (taken.has(`${px},${y}`)) px = (px + CARD_W) % (COLUMNS - CARD_W + 1)
       return [
         ...items,
-        { id: crypto.randomUUID(), nodeId: payload.nodeId, metric: payload.metric, name: payload.name, color: payload.color, x: px, y, w: CARD_W, h: CARD_H },
+        {
+          id: crypto.randomUUID(),
+          nodeId: payload.nodeId,
+          metric: payload.metric,
+          name: payload.name,
+          color: payload.color,
+          x: px,
+          y,
+          w: CARD_W,
+          h: CARD_H,
+        },
       ]
     })
   }, [])
@@ -279,8 +304,22 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
     [setSelectedIds],
   )
 
+  const onDockedContextMenu = useCallback((e: ReactMouseEvent) => {
+    const target = e.target as HTMLElement
+    const widget = target.closest<HTMLElement>("[data-docked-id]")
+    const id = widget?.dataset.dockedId
+    if (!id) return
+    e.preventDefault()
+    setDockedMenu({ at: { x: e.clientX, y: e.clientY }, id })
+  }, [])
+
   const menuItems = (node: GraphNode): MenuItem[] => {
-    const payload = (metric: Metric): GraphPayload => ({ nodeId: node.id, metric, name: node.name ?? node.service, color: SERVICE_COLORS[node.service] })
+    const payload = (metric: Metric): GraphPayload => ({
+      nodeId: node.id,
+      metric,
+      name: node.name ?? node.service,
+      color: SERVICE_COLORS[node.service],
+    })
     return [
       {
         label: "Rename",
@@ -296,7 +335,10 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       {
         label: "Detailed graph",
         icon: <SquaresFourIcon />,
-        onSelect: () => (Object.keys(METRICS) as Metric[]).forEach((metric, i) => dock(payload(metric), (i * CARD_W) % COLUMNS, Math.floor((i * CARD_W) / COLUMNS) * CARD_H)),
+        onSelect: () =>
+          (Object.keys(METRICS) as Metric[]).forEach((metric, i) =>
+            dock(payload(metric), (i * CARD_W) % COLUMNS, Math.floor((i * CARD_W) / COLUMNS) * CARD_H),
+          ),
       },
       { label: "Delete", icon: <TrashIcon />, danger: true, onSelect: () => graphStore.removeNode(node.id) },
     ]
@@ -304,19 +346,32 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
 
   const [boxSelect, setBoxSelect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
 
+  const getDescendants = useCallback(
+    (id: string): string[] => {
+      const children = nodes.filter((n) => n.parentId === id).map((n) => n.id)
+      return [id, ...children.flatMap(getDescendants)]
+    },
+    [nodes],
+  )
+
   const onSelectPointerDown = useCallback(
     (e: ReactPointerEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
       const id = island?.dataset.islandId
       if (id) {
+        const toToggle = getDescendants(id)
         setSelectedIds((prev) => {
           if (e.shiftKey) {
             const next = new Set(prev)
-            if (next.has(id)) next.delete(id)
-            else next.add(id)
+            if (next.has(id)) {
+              toToggle.forEach((d) => next.delete(d))
+            } else {
+              toToggle.forEach((d) => next.add(d))
+            }
             return next
           }
-          return new Set([id])
+          if (prev.has(id)) return prev
+          return new Set(toToggle)
         })
         return
       }
@@ -344,12 +399,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
               const selected = new Set(ev.shiftKey ? prev : [])
               document.querySelectorAll("[data-island-id] > *").forEach((el) => {
                 const rect = el.getBoundingClientRect()
-                if (
-                  rect.right >= box.x &&
-                  rect.left <= box.x + box.w &&
-                  rect.bottom >= box.y &&
-                  rect.top <= box.y + box.h
-                ) {
+                if (rect.right >= box.x && rect.left <= box.x + box.w && rect.bottom >= box.y && rect.top <= box.y + box.h) {
                   const island = el.closest<HTMLElement>("[data-island-id]")
                   const elId = island?.dataset.islandId
                   if (elId) selected.add(elId)
@@ -409,15 +459,16 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
 
     const content = (
       <div data-island-id={node.id} data-selected={selectedIds.has(node.id) || undefined} className="contents">
-        <Service
-          id={node.id}
-          style={!node.parentId || node.service === ServiceType.Region ? at(x, y) : undefined}
-        />
+        <Service id={node.id} style={!node.parentId || node.service === ServiceType.Region ? at(x, y) : undefined} />
       </div>
     )
 
     if (!node.parentId) {
-      return <div key={node.id} className="contents">{content}</div>
+      return (
+        <div key={node.id} className="contents">
+          {content}
+        </div>
+      )
     }
 
     const body = frameBodies.get(node.parentId)
@@ -437,42 +488,37 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       <Group orientation="vertical" className="w-full h-full">
         <Panel defaultSize="85%" minSize="50%">
           <Group orientation="horizontal" className="w-full h-full">
-              <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
-                <section 
-                  className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
-                  style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
-                >
-                  <div className="text-sm font-semibold text-white">Services</div>
-                  
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-neutral-800 text-white rounded px-3 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blueprimary transition-all border border-neutral-700"
-                  />
+            <Panel defaultSize="15%" minSize="10%" maxSize="30%" className="bg-gray-50/10">
+              <section
+                className="h-full w-full p-4 flex flex-col gap-4 overflow-y-auto scrollbar-thin"
+                style={{ scrollbarWidth: "thin", scrollbarColor: "#444444 #181818" }}
+              >
+                <div className="text-sm font-semibold text-white">Services</div>
 
-                  {Object.entries(filteredCategories).map(([category, items]) => (
-                    <div key={category} className="flex flex-col gap-2">
-                      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mt-2 mb-1">{category}</div>
-                      {items.map(({ service, icon }) => (
-                        <div
-                          key={service}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, service)}
-                          className={sidebarItem}
-                        >
-                          {icon && <img src={icon} alt="" className={sidebarIcon} />}
-                          {service}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                  {Object.keys(filteredCategories).length === 0 && (
-                    <div className="text-xs text-neutral-500 font-mono text-center mt-4">No results</div>
-                  )}
-                </section>
-              </Panel>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-neutral-800 text-white rounded px-3 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blueprimary transition-all border border-neutral-700"
+                />
+
+                {Object.entries(filteredCategories).map(([category, items]) => (
+                  <div key={category} className="flex flex-col gap-2">
+                    <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mt-2 mb-1">{category}</div>
+                    {items.map(({ service, icon }) => (
+                      <div key={service} draggable onDragStart={(e) => handleDragStart(e, service)} className={sidebarItem}>
+                        {icon && <img src={icon} alt="" className={sidebarIcon} />}
+                        {SERVICE_LABELS[service] || service}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {Object.keys(filteredCategories).length === 0 && (
+                  <div className="text-xs text-neutral-500 font-mono text-center mt-4">No results</div>
+                )}
+              </section>
+            </Panel>
 
             <Separator className="w-[0.25] bg-gray-200 hover:bg-blue-500 transition-colors duration-150 cursor-col-resize" />
 
@@ -525,7 +571,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
           }}
           onDrop={onGraphDrop}
         >
-          <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4">
+          <section className="flex-1 min-h-0 w-full relative overflow-y-auto overflow-x-hidden p-4" onContextMenu={onDockedContextMenu}>
             {docked.length === 0 && (
               <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
                 Drag a graph from a service to view the graphs here
@@ -538,6 +584,24 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       </Group>
 
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.node)} onClose={() => setMenu(null)} />}
+
+      {dockedMenu && (
+        <ContextMenu
+          at={dockedMenu.at}
+          items={[
+            {
+              icon: <TrashIcon />,
+              label: "Remove Graph",
+              danger: true,
+              onClick: () => {
+                setDocked((prev) => prev.filter((d) => d.id !== dockedMenu.id))
+                setDockedMenu(null)
+              },
+            },
+          ]}
+          onClose={() => setDockedMenu(null)}
+        />
+      )}
 
       {boxSelect && (
         <div

@@ -32,6 +32,7 @@ const Frame = ({ id, name, icon, style, sockets = false, droppable = true, visib
       style={style}
       data-frame={id}
       data-id={id}
+      data-node
       className="w-fit border-2 border-dashed border-[#147eba] flex flex-col relative"
     >
       <div
@@ -56,7 +57,12 @@ const Frame = ({ id, name, icon, style, sockets = false, droppable = true, visib
       <div
         ref={droppable ? bodyRef : undefined}
         data-frame-body
-        className={cn("p-3 flex-1 flex flex-col gap-2 max-h-[60vh] max-w-[70vw] overflow-auto resize min-h-12 min-w-32 [[data-dragging]_&]:overflow-visible", collapsed && "hidden")}
+        className={cn(
+          "p-3 flex-1 flex flex-col gap-2 max-h-[60vh] max-w-[70vw] overflow-y-auto overflow-x-hidden resize min-h-12 min-w-32",
+          "[[data-dragging]_&]:overflow-visible",
+          "[&_[data-node]]:!w-full",
+          collapsed && "hidden"
+        )}
       >
         {children}
       </div>

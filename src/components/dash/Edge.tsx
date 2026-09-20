@@ -135,6 +135,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
   graphRef.current = graph;
   resultsRef.current = results;
   const pointer = useRef({ x: 0, y: 0 });
+  const dragStart = useRef({ x: 0, y: 0 });
   const inputs = useRef(new Map<string, HTMLElement>());
   const outputs = useRef(new Map<string, HTMLElement>());
   const registry = (type: SocketType) => (type === SocketType.Input ? inputs.current : outputs.current);
@@ -163,6 +164,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
         if (!current) {
           setPending(el);
+          dragStart.current = { ...pointer.current };
           return;
         }
 
@@ -189,12 +191,31 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
 
     const cancel = () => setPending(null);
 
+    const up = (event: PointerEvent) => {
+      const dx = event.clientX - dragStart.current.x;
+      const dy = event.clientY - dragStart.current.y;
+      if (Math.hypot(dx, dy) < 5) return; // Allow click-to-connect to continue
+
+      const hit = document
+        .elementsFromPoint(event.clientX, event.clientY)
+        .map((el) => (el as HTMLElement).closest<HTMLElement>("[data-socket]"))
+        .find(Boolean);
+
+      if (hit && hit !== pending) {
+        api.grab(hit);
+      } else {
+        setPending(null);
+      }
+    };
+
     window.addEventListener("pointerdown", cancel);
+    window.addEventListener("pointerup", up);
 
     return () => {
       window.removeEventListener("pointerdown", cancel);
+      window.removeEventListener("pointerup", up);
     };
-  }, [pending]);
+  }, [pending, api]);
 
   useEffect(() => {
     const move = (event: PointerEvent) => {

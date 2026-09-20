@@ -2,12 +2,32 @@ import type { CSSProperties } from "react"
 import Node from "../../Node"
 import { useNodeConfig } from "#graph"
 import { ServiceType } from "../../../../types/math"
-import { S3_DEFAULTS, type S3Config } from "#math/s3/throughput"
 import { SERVICE_COLORS } from "../../colors"
 import { serviceIcon } from "../../icons"
+import Dropdown from "../../nodeoptions/dropdown"
+import Slider from "../../nodeoptions/slider"
+
+interface EBSConfig {
+  volumeType: string
+  sizeGb: number
+  iops: number
+}
+
+const EBS_DEFAULTS: EBSConfig = {
+  volumeType: "gp3",
+  sizeGb: 100,
+  iops: 3000,
+}
 
 const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [config, patch, nodeId] = useNodeConfig<S3Config>(ServiceType.EBS, S3_DEFAULTS, id)
+  const [config, patch, nodeId] = useNodeConfig<EBSConfig>(ServiceType.EBS, EBS_DEFAULTS, id)
+
+  const typeOptions = ["gp3", "gp2", "io1", "io2", "st1", "sc1"].map((name) => ({
+    name,
+    onSelect: () => patch({ volumeType: name }),
+  }))
+
+  const c = { ...EBS_DEFAULTS, ...config }
 
   return (
     <Node
@@ -17,7 +37,23 @@ const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("ebs.svg")}
       style={style}
     >
-      <div className="text-xs text-[#a3a3a3] font-sans px-2">Block Storage</div>
+      <Dropdown label="Volume Type" options={typeOptions} value={c.volumeType} />
+      <Slider
+        label="Size (GB)"
+        min={1}
+        max={16000}
+        value={c.sizeGb}
+        onChange={(v) => patch({ sizeGb: v })}
+      />
+      {["gp3", "io1", "io2"].includes(c.volumeType) && (
+        <Slider
+          label="Provisioned IOPS"
+          min={3000}
+          max={64000}
+          value={c.iops}
+          onChange={(v) => patch({ iops: v })}
+        />
+      )}
     </Node>
   )
 }

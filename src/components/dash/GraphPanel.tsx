@@ -30,28 +30,33 @@ const chartData = (history: readonly NodeResult[], metric: Metric): ChartDataIte
   history.map((r, i) => ({ time: String(i), Throughput: METRICS[metric].pick(r), Time: i }))
 
 interface GraphWidgetProps {
+  id: string
   nodeId: string
   metric: Metric
   name: string
   color?: string
 }
 
-function GraphWidget({ nodeId, metric, name, color }: GraphWidgetProps) {
+function GraphWidget({ id, nodeId, metric, name, color }: GraphWidgetProps) {
   const { history } = useNodeResult(nodeId)
   const spec = METRICS[metric]
   const data = useMemo(() => chartData(history, metric), [history, metric])
   return (
-    <div className="h-full w-full overflow-hidden rounded-lg border border-[#1f1f1f] shadow-lg shadow-black/40">
+    <div
+      data-docked-id={id}
+      className="h-full w-full overflow-hidden rounded-lg border border-[#1f1f1f] shadow-lg shadow-black/40"
+    >
       <Graph chartdata={data} fill color={color} title={`${name} · ${spec.label}`} unit={spec.unit} />
     </div>
   )
 }
 
 interface GridEventsProps {
+  items: Docked[]
   onChange: (items: Docked[]) => void
 }
 
-function GridEvents({ onChange }: GridEventsProps) {
+function GridEvents({ items, onChange }: GridEventsProps) {
   const { grid } = useGridStack()
   const onChangeRef = useRef(onChange)
 
@@ -62,30 +67,10 @@ function GridEvents({ onChange }: GridEventsProps) {
   useEffect(() => {
     if (!grid) return
 
-    const updateBounds = () => {
-      const height = grid.el.clientHeight
-      if (height <= 0) return
-
-      // Find the maximum logical row any widget reaches
-      const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
-
-      // Dynamically size the cells so they perfectly fill the visible height
-      const newCellHeight = Math.floor(height / maxRows)
-      grid.cellHeight(newCellHeight)
-    }
-
-    updateBounds()
-
-    const observer = new ResizeObserver(updateBounds)
-    observer.observe(grid.el)
-
-    grid.on("added removed change", updateBounds)
-
     return () => {
-      observer.disconnect()
-      grid.off("added removed change")
+      // Clean up if needed
     }
-  }, [grid])
+  }, [grid, items])
 
   useEffect(() => {
     if (!grid) return
@@ -140,11 +125,9 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
       margin: 0,
       float: true,
       animate: true,
-      draggable: {
-        appendTo: "body",
-      },
+      draggable: true,
       resizable: {
-        handles: "all",
+        handles: "se,sw,ne,nw,n,s,e,w",
       },
       children: items.map((item) => ({
         id: item.id,
@@ -154,6 +137,7 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
         h: item.h,
         component: "GraphWidget",
         props: {
+          id: item.id,
           nodeId: item.nodeId,
           metric: item.metric,
           name: item.name,
@@ -172,7 +156,7 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
           GraphWidget: (props: Record<string, unknown>) => <GraphWidget {...(props as unknown as GraphWidgetProps)} />,
         }}
       >
-        <GridEvents onChange={onChange} />
+        <GridEvents items={items} onChange={onChange} />
       </GridStack>
     </div>
   )

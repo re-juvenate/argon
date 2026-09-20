@@ -2,12 +2,34 @@ import type { CSSProperties } from "react"
 import Node from "../../Node"
 import { useNodeConfig } from "#graph"
 import { ServiceType } from "../../../../types/math"
-import { S3_DEFAULTS, type S3Config } from "#math/s3/throughput"
 import { SERVICE_COLORS } from "../../colors"
 import { serviceIcon } from "../../icons"
+import Dropdown from "../../nodeoptions/dropdown"
+
+interface EFSConfig {
+  performanceMode: string
+  throughputMode: string
+}
+
+const EFS_DEFAULTS: EFSConfig = {
+  performanceMode: "General Purpose",
+  throughputMode: "Elastic",
+}
 
 const EFS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
-  const [config, patch, nodeId] = useNodeConfig<S3Config>(ServiceType.EFS, S3_DEFAULTS, id)
+  const [config, patch, nodeId] = useNodeConfig<EFSConfig>(ServiceType.EFS, EFS_DEFAULTS, id)
+
+  const perfOptions = ["General Purpose", "Max I/O"].map((name) => ({
+    name,
+    onSelect: () => patch({ performanceMode: name }),
+  }))
+
+  const thruOptions = ["Bursting", "Provisioned", "Elastic"].map((name) => ({
+    name,
+    onSelect: () => patch({ throughputMode: name }),
+  }))
+
+  const c = { ...EFS_DEFAULTS, ...config }
 
   return (
     <Node
@@ -17,7 +39,8 @@ const EFS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("efs.svg")}
       style={style}
     >
-      <div className="text-xs text-[#a3a3a3] font-sans px-2">File Storage</div>
+      <Dropdown label="Performance Mode" options={perfOptions} value={c.performanceMode} />
+      <Dropdown label="Throughput Mode" options={thruOptions} value={c.throughputMode} />
     </Node>
   )
 }

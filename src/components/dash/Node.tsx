@@ -90,6 +90,7 @@ export default function Node({
       ref={islandRef}
       style={style}
       data-id={id}
+      data-node
       onPointerDown={(e) => {
         e.stopPropagation()
         onSelect?.()

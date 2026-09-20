@@ -14,9 +14,7 @@ const App = () => {
 
   return (
     <div className="bg-background h-screen w-screen overflow-hidden">
-      {/*<Layout />*/}
-      <AwsMap />
-      {/*<Graph chartdata={mockChartData} />*/}
+      <Layout />
     </div>
   )
 }

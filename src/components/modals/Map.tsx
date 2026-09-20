@@ -1,6 +1,7 @@
 import React from "react"
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps"
 import worldAtlas from "../../assets/world.json"
+import cn from "cnfast"
 
 const GEO_DATA = worldAtlas as any
 
@@ -34,74 +35,85 @@ const WorldGeographies = React.memo(() => (
 
 WorldGeographies.displayName = "WorldGeographies"
 
-const RegionMarker = React.memo(({ region, onHover, onLeave }: { region: AwsRegion; onHover: (r: AwsRegion) => void; onLeave: () => void }) => {
-  return (
-    <Marker coordinates={region.coordinates}>
-      <g className="group cursor-pointer" onMouseEnter={() => onHover(region)} onMouseLeave={onLeave}>
-        <rect
-          x={-3.5}
-          y={-3.5}
-          width={7}
-          height={7}
-          fill="white"
-          stroke="black"
-          strokeWidth={0.5}
-          className="
-            origin-center
-            transform-fill
-            transition-transform
-            duration-200
-            ease-out
-            group-hover:scale-150
-          "
-        />
-
-        <text
-          x={0}
-          y={-8}
-          textAnchor="middle"
-          className="
-            pointer-events-none
-            select-none
-            fill-white
-            text-[10px]
-            font-medium
-            opacity-0
-            transition-opacity
-            duration-150
-            group-hover:opacity-100
-          "
+const RegionMarker = React.memo(
+  ({
+    region,
+    onHover,
+    onLeave,
+    onSelect,
+  }: {
+    region: AwsRegion
+    onHover: (r: AwsRegion) => void
+    onLeave: () => void
+    onSelect?: (code: string) => void
+  }) => {
+    return (
+      <Marker coordinates={region.coordinates}>
+        <g
+          className="group cursor-pointer"
+          onMouseEnter={() => onHover(region)}
+          onMouseLeave={onLeave}
+          onClick={() => onSelect?.(region.code)}
         >
-          {region.name}
-        </text>
-      </g>
-    </Marker>
-  )
-})
+          <rect
+            x={-3.5}
+            y={-3.5}
+            width={7}
+            height={7}
+            fill="white"
+            stroke="black"
+            strokeWidth={0.5}
+            className={cn(
+              "origin-center transform-fill transition-transform duration-200 ease-out group-hover:scale-150"
+            )}
+          />
+
+          <text
+            x={0}
+            y={-8}
+            textAnchor="middle"
+            className="pointer-events-none select-none fill-white text-[10px] font-medium opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+          >
+            {region.name}
+          </text>
+        </g>
+      </Marker>
+    )
+  }
+)
 
 RegionMarker.displayName = "RegionMarker"
 
-export default function AwsMap() {
+export default function AwsMap({ onSelect, onClose }: { onSelect?: (code: string) => void; onClose?: () => void }) {
   const [hovered, setHovered] = React.useState<AwsRegion | null>(null)
 
   return (
-    <div className="h-full w-full overflow-hidden relative bg-[#0f1011]">
-      <div
-        className={`text-white absolute top-12 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center transition-opacity duration-300 ${
-          hovered ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <h2 className="text-4xl font-bold tracking-wide shadow-black drop-shadow-md">{hovered?.name || "Region"}</h2>
-        <p className="mt-2 shadow-black drop-shadow-md">{hovered?.code || "aws-region"}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative h-[80vh] w-[80vw] overflow-hidden rounded-xl bg-[#0f1011] shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+        <div
+          className={cn(
+            "text-white absolute top-12 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center transition-opacity duration-300 z-10",
+            hovered ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <h2 className="text-4xl font-bold tracking-wide shadow-black drop-shadow-md">{hovered?.name || "Region"}</h2>
+          <p className="mt-2 shadow-black drop-shadow-md">{hovered?.code || "aws-region"}</p>
+        </div>
+
+        <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: 140 }} className="block h-full w-full">
+          <WorldGeographies />
+
+          {AWS_REGIONS.map((region) => (
+            <RegionMarker
+              key={region.code}
+              region={region}
+              onHover={setHovered}
+              onLeave={() => setHovered(null)}
+              onSelect={onSelect}
+            />
+          ))}
+        </ComposableMap>
       </div>
-
-      <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: 140 }} className="block h-full w-full">
-        <WorldGeographies />
-
-        {AWS_REGIONS.map((region) => (
-          <RegionMarker key={region.code} region={region} onHover={setHovered} onLeave={() => setHovered(null)} />
-        ))}
-      </ComposableMap>
     </div>
   )
 }

@@ -94,7 +94,7 @@ export default function Node({
       onPointerDown={(e) => {
         e.stopPropagation()
         onSelect?.()
-        
+
         if (id && edgeApi?.pending) {
           const pendingType = edgeApi.pending.dataset.socket
           const targetType = pendingType === SocketType.Output ? SocketType.Input : SocketType.Output
@@ -163,7 +163,7 @@ export default function Node({
           <div
             draggable={!!id}
             onDragStart={(e) => id && startGraphDrag(e, { nodeId: id, metric: Metric.Served, name: shownName, color })}
-            className="cursor-grab active:cursor-grabbing rounded bg-emerald-950/30 border border-emerald-900/30 px-1 pt-1"
+            className="cursor-grab active:cursor-grabbing rounded px-1 pt-1"
           >
             <SparkAreaChart
               data={series}
@@ -181,16 +181,7 @@ export default function Node({
         {visibleChildren}
         {/* Collapsed children stay mounted and invisible: their width keeps
             reserving space, so expanding never changes the node's width. */}
-        {children && (
-          <div
-            className={clsx(
-              "flex flex-col gap-2",
-              !isOpen && "invisible h-0 overflow-hidden",
-            )}
-          >
-            {children}
-          </div>
-        )}
+        {children && <div className={clsx("flex flex-col gap-2", !isOpen && "invisible h-0 overflow-hidden")}>{children}</div>}
       </div>
 
       {shown.map((type) => (

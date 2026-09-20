@@ -102,7 +102,11 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5",
             <span
               className={classNames(
                 "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                !payload ? "text-neutral-500 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/60" : "text-red-400 bg-red-950/50",
+                !payload
+                  ? "text-neutral-500 bg-neutral-900"
+                  : percentageChange > 0
+                    ? "text-emerald-400 bg-emerald-950/60"
+                    : "text-red-400 bg-red-950/50",
               )}
             >
               {payload ? formatChange(payload, percentageChange, absoluteChange) : `Max`}

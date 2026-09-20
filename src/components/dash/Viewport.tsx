@@ -68,6 +68,13 @@ export default function Viewport({ children }: { children: ReactNode }) {
   const [transform, setTransform] = useState<Transform>(IDENTITY)
   const [panning, setPanning] = useState(false)
 
+  useEffect(() => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setTransform({ x: rect.width / 2, y: rect.height / 2, scale: 1 })
+    }
+  }, [])
+
   // Native listener: React's onWheel is passive, and zoom must preventDefault.
   useEffect(() => {
     const el = ref.current
@@ -160,7 +167,12 @@ export default function Viewport({ children }: { children: ReactNode }) {
           type="button"
           className="h-8 min-w-8 px-2 grid place-items-center rounded bg-neutral-800/90 text-white text-sm font-mono select-none hover:bg-neutral-700 active:scale-95 transition border border-neutral-700"
           title="Reset view"
-          onClick={() => setTransform(IDENTITY)}
+          onClick={() => {
+            if (ref.current) {
+              const rect = ref.current.getBoundingClientRect()
+              setTransform({ x: rect.width / 2, y: rect.height / 2, scale: 1 })
+            }
+          }}
         >
           {Math.round(transform.scale * 100)}%
         </button>

@@ -30,24 +30,33 @@ interface EnumDropdownProps {
   label?: string;
   children: React.ReactNode[];
   optionNames: string[];
+  value?: number;
+  onChange?: (index: number) => void;
 }
 
 export default function EnumDropdown({
   label = "Options",
   children,
   optionNames,
+  value,
+  onChange,
 }: EnumDropdownProps) {
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
+  const current = value !== undefined ? value : activeIndex;
+
   const generatedOptions: Option[] = optionNames.map((name, index) => ({
     name,
-    onSelect: () => setActiveIndex(index),
+    onSelect: () => {
+      setActiveIndex(index);
+      onChange?.(index);
+    },
   }));
 
   return (
     <div className="w-full space-y-1">
-      <Dropdown label={label} options={generatedOptions} />
-      <div className="space-y-1">{children[activeIndex]}</div>
+      <Dropdown label={label} options={generatedOptions} value={optionNames[current]} />
+      <div className="space-y-1">{children[current]}</div>
     </div>
   );
 }

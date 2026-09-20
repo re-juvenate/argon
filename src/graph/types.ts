@@ -39,7 +39,14 @@ export const GLOBAL_DEFAULTS: GlobalDefaults = { dtSeconds: 1 }
 export const emptyGraph = (defaults: Partial<GlobalDefaults> = {}): Graph => ({
   version: 1,
   defaults: { ...GLOBAL_DEFAULTS, ...defaults },
-  nodes: [],
+  nodes: [
+    {
+      id: "default-client",
+      service: ServiceType.Client,
+      config: {},
+      position: { x: 50000, y: 50000 },
+    }
+  ],
   edges: [],
 })
 

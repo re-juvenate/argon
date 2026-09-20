@@ -25,7 +25,12 @@ const Client = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       sockets={OUTPUT_ONLY}
       visibleChildren={<span className="text-xs text-[#999999]">{config.rps} req/s</span>}
     >
-      <EnumDropdown label="Noise" optionNames={["None", "Noise"]}>
+      <EnumDropdown 
+        label="Noise" 
+        optionNames={["None", "Noise"]}
+        value={config.noiseEnabled ? 1 : 0}
+        onChange={(index) => patch({ noiseEnabled: index === 1 })}
+      >
         <>
           <Slider
             label="Requests / s"

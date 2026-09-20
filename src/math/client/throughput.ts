@@ -6,6 +6,7 @@ export interface ClientConfig {
   avgBytes?: number;
   noiseMin?: number;
   noiseMax?: number;
+  noiseEnabled?: boolean;
 }
 
 export const CLIENT_DEFAULTS: Required<ClientConfig> = { 
@@ -13,11 +14,12 @@ export const CLIENT_DEFAULTS: Required<ClientConfig> = {
   avgBytes: 4 * KiB,
   noiseMin: 0.5,
   noiseMax: 1.5,
+  noiseEnabled: false,
 };
 
 export const sourceMbps = (config?: ClientConfig, randomize = false) => {
   const c = resolve(CLIENT_DEFAULTS, config);
-  const factor = randomize ? c.noiseMin + Math.random() * (c.noiseMax - c.noiseMin) : 1.0;
+  const factor = (randomize && c.noiseEnabled) ? c.noiseMin + Math.random() * (c.noiseMax - c.noiseMin) : 1.0;
   return toMbps(c.rps * factor, bytes(c.avgBytes));
 };
 

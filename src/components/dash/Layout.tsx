@@ -136,15 +136,15 @@ const board = (hovering: boolean) =>
 const moveNode = (id: string, parentId: string | null, x: number, y: number) => graphStore.place(id, { x, y }, parentId)
 
 export default function Layout() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [hovering, setHovering] = useState(false)
 
   return (
     <SimulationProvider>
       <EditorProvider moveNode={moveNode}>
         <Editor
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
           hovering={hovering}
           setHovering={setHovering}
         />
@@ -154,13 +154,13 @@ export default function Layout() {
 }
 
 interface EditorProps {
-  selectedId: string | null
-  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>
+  selectedIds: Set<string>
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
   hovering: boolean
   setHovering: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProps) {
+function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorProps) {
   const { frameBodies } = useEditor()
   const { nodes } = useGraph()
 
@@ -210,10 +210,10 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
   }
 
   const deleteSelected = useCallback(() => {
-    if (!selectedId) return
-    graphStore.removeNode(selectedId)
-    setSelectedId(null)
-  }, [selectedId, setSelectedId])
+    if (selectedIds.size === 0) return
+    selectedIds.forEach((id) => graphStore.removeNode(id))
+    setSelectedIds(new Set())
+  }, [selectedIds, setSelectedIds])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -238,10 +238,10 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
       const node = id ? graphStore.get().nodes.find((n) => n.id === id) : undefined
       if (!node) return
       e.preventDefault()
-      setSelectedId(node.id)
+      setSelectedIds(new Set([node.id]))
       setMenu({ at: { x: e.clientX, y: e.clientY }, node })
     },
-    [setSelectedId],
+    [setSelectedIds],
   )
 
   const menuItems = (node: GraphNode): MenuItem[] => {
@@ -267,12 +267,71 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
     ]
   }
 
+  const [boxSelect, setBoxSelect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
   const onSelectPointerDown = useCallback(
     (e: ReactPointerEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
-      setSelectedId(island?.dataset.islandId ?? null)
+      const id = island?.dataset.islandId
+      if (id) {
+        setSelectedIds((prev) => {
+          if (e.shiftKey) {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+          }
+          return new Set([id])
+        })
+        return
+      }
+
+      if (e.button !== 0) return
+
+      const startX = e.clientX
+      const startY = e.clientY
+
+      const onMove = (ev: PointerEvent) => {
+        const x = Math.min(startX, ev.clientX)
+        const y = Math.min(startY, ev.clientY)
+        const w = Math.abs(ev.clientX - startX)
+        const h = Math.abs(ev.clientY - startY)
+        setBoxSelect({ x, y, w, h })
+      }
+
+      const onUp = (ev: PointerEvent) => {
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+
+        setBoxSelect((box) => {
+          if (box && box.w > 5 && box.h > 5) {
+            setSelectedIds((prev) => {
+              const selected = new Set(ev.shiftKey ? prev : [])
+              document.querySelectorAll("[data-island-id]").forEach((el) => {
+                const rect = el.getBoundingClientRect()
+                if (
+                  rect.right >= box.x &&
+                  rect.left <= box.x + box.w &&
+                  rect.bottom >= box.y &&
+                  rect.top <= box.y + box.h
+                ) {
+                  const elId = (el as HTMLElement).dataset.islandId
+                  if (elId) selected.add(elId)
+                }
+              })
+              return selected
+            })
+          } else {
+            if (!ev.shiftKey) setSelectedIds(new Set())
+          }
+          return null
+        })
+      }
+
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
     },
-    [setSelectedId],
+    [setSelectedIds],
   )
 
   const dragDepth = useRef(0)
@@ -313,7 +372,7 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
     const { x, y } = node.position ?? { x: 0, y: 0 }
 
     const content = (
-      <div data-island-id={node.id} data-selected={selectedId === node.id || undefined} className="contents">
+      <div data-island-id={node.id} data-selected={selectedIds.has(node.id) || undefined} className="contents">
         <Service
           id={node.id}
           style={!node.parentId || node.service === ServiceType.Region ? at(x, y) : undefined}
@@ -424,6 +483,18 @@ function Editor({ selectedId, setSelectedId, hovering, setHovering }: EditorProp
       </Group>
 
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.node)} onClose={() => setMenu(null)} />}
+
+      {boxSelect && (
+        <div
+          className="fixed pointer-events-none bg-blueprimary/20 border border-blueprimary z-50"
+          style={{
+            left: boxSelect.x,
+            top: boxSelect.y,
+            width: boxSelect.w,
+            height: boxSelect.h,
+          }}
+        />
+      )}
     </div>
   )
 }

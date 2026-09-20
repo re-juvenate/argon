@@ -23,7 +23,7 @@ const Second = ({
   if (awsLogos.length === 0) return null
 
   return (
-    <div className="relative flex h-[200px] w-full items-center justify-center select-none overflow-hidden bg-black" aria-label={ariaLabel}>
+    <div className="relative flex h-screen w-full select-none overflow-hidden bg-black pt-4" aria-label={ariaLabel}>
       <LogoLoop
         logos={awsLogos}
         speed={speed}

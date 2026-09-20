@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
+import { Sun, Moon } from "@phosphor-icons/react"
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(useGSAP)
@@ -152,11 +153,36 @@ const NavLink = ({ label, href, onClick }: NavLinkItem & { onClick: () => void }
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
+  const [isDark, setIsDark] = useState(true)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const timeline = useRef<gsap.core.Timeline | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains("dark") || 
+                       (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    
+    setIsDark(isDarkMode)
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const newDark = !isDark
+    setIsDark(newDark)
+    if (newDark) {
+      document.documentElement.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }
 
   const close = () => setOpen(false)
 
@@ -209,16 +235,26 @@ export default function Navbar() {
         <a href="/" className="text-lg font-semibold tracking-tight">
           {BRAND}
         </a>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-expanded={open}
-          aria-controls="site-menu"
-          className="text-lg font-medium tracking-tight hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-        >
-          Menu
-        </button>
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            aria-label="Toggle dark mode"
+          >
+            {isDark ? <Sun className="w-5 h-5" weight="bold" /> : <Moon className="w-5 h-5" weight="bold" />}
+          </button>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-expanded={open}
+            aria-controls="site-menu"
+            className="text-lg font-medium tracking-tight hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            Menu
+          </button>
+        </div>
       </header>
 
       <div

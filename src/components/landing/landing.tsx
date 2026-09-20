@@ -8,7 +8,7 @@ import Footer from "./footer"
 
 const Landing = () => {
   return (
-    <div className="flex flex-col w-full min-h-screen overflow-x-hidden bg-black text-white">
+    <div className="flex flex-col w-full min-h-screen overflow-x-hidden bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
       <NavBar />
       <First />
       <Second />

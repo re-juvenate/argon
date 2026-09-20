@@ -62,7 +62,7 @@ export default function Footer() {
   return (
     <footer
       ref={containerRef}
-      className="relative w-full bg-[#111] text-white overflow-hidden pt-20 pb-40 flex flex-col items-center border-t border-neutral-800"
+      className="relative w-full bg-neutral-100 dark:bg-[#111] text-black dark:text-white overflow-hidden pt-20 pb-40 flex flex-col items-center border-t border-neutral-300 dark:border-neutral-800 transition-colors duration-300"
     >
       <div className="w-full max-w-6xl px-6 grid grid-cols-1 md:grid-cols-3 gap-12 z-10 relative">
         {/* Left Column: Logo */}
@@ -77,13 +77,11 @@ export default function Footer() {
         {/* Middle Column: Join */}
         <div className="flex flex-col items-start justify-center space-y-6">
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-neutral-400">Try Argon Simulator NOW</h3>
-            <button className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-sm font-medium transition-colors cursor-pointer">
-              Launch App
-            </button>
+            <div className="text-sm font-medium text-neutral-400">Try Argon Simulator NOW</div>
+            <button className="px-6 py-2 bg-white text-black rounded text-sm font-medium transition-colors cursor-pointer">Launch App</button>
           </div>
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-neutral-400">Contribute and Star</h3>
+            <div className="text-sm font-medium text-neutral-400">Contribute and Star</div>
             <button className="flex items-center space-x-2 px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded text-sm font-medium transition-colors cursor-pointer">
               <GithubLogo weight="fill" className="w-5 h-5" />
               <span>GitHub</span>
@@ -114,7 +112,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full max-w-6xl px-6 mt-16 flex flex-col md:flex-row justify-between items-start md:items-end text-xs text-neutral-500 z-10 relative">
+      <div className="text-white w-full max-w-6xl px-6 mt-16 flex flex-col md:flex-row justify-between items-start md:items-end text-sm z-10 relative">
         <p className="mt-4 md:mt-0 max-w-md">
           Visualize your cloud architectures with precision.
           <br />
@@ -133,12 +131,7 @@ export default function Footer() {
             >
               {/* The inner div handles the CSS hover transition safely */}
               <div className="w-full h-full flex items-center justify-center hover:scale-125 transition-transform duration-200">
-                <img 
-                  src={icon.url} 
-                  alt={icon.name} 
-                  draggable={false} 
-                  className="w-10 h-10 object-contain pointer-events-none" 
-                />
+                <img src={icon.url} alt={icon.name} draggable={false} className="w-10 h-10 object-contain pointer-events-none" />
               </div>
             </div>
           ))}

@@ -127,24 +127,32 @@ export function HoverImg({ projects = defaultProjects, className, isContained = 
   )
 
   return (
-    <div className={cn("hover-img-container", compact && "hover-img-compact", className)} ref={containerRef}>
-      <div className="hover-img-projects">
-        {projects.map((project, index) => (
-          <div className="hover-img-project" key={index}>
-            <h2>{project.title}</h2>
-            <p>{project.label}</p>
-          </div>
-        ))}
+    <>
+      <div className="w-screen">
+        <h2 className="bg-[#f2f2f2] text-5xl font-against text-black dark:text-white transition-colors duration-300">Features</h2>
+        <p className="bg-[#f2f2f2] text-neutral-500 dark:text-neutral-400 mt-4 text-lg max-w-2xl mx-auto transition-colors duration-300 w-full">
+          Everything you need to design, simulate, and deploy robust AWS cloud architectures.
+        </p>
       </div>
+      <div className={cn("hover-img-container", compact && "hover-img-compact", className)} ref={containerRef}>
+        <div className="hover-img-projects">
+          {projects.map((project, index) => (
+            <div className="hover-img-project" key={index}>
+              <h2>{project.title}</h2>
+              <p>{project.label}</p>
+            </div>
+          ))}
+        </div>
 
-      <div className="hover-img-thumbnail-wrapper" ref={thumbnailRef} style={isContained ? { position: "absolute" } : undefined}>
-        {projects.map((project, index) => (
-          <div className="hover-img-thumbnail" key={index}>
-            <img src={project.imageSrc} alt={project.title} />
-          </div>
-        ))}
+        <div className="hover-img-thumbnail-wrapper" ref={thumbnailRef} style={isContained ? { position: "absolute" } : undefined}>
+          {projects.map((project, index) => (
+            <div className="hover-img-thumbnail" key={index}>
+              <img src={project.imageSrc} alt={project.title} />
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

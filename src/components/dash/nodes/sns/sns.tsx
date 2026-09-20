@@ -1,10 +1,10 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
-import { useNodeConfig } from "#graph";
+import { useGraph, useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
-import Slider from "../../nodeoptions/slider";
+import Boolean from "../../nodeoptions/boolean";
 import { SNS_DEFAULTS, type SNSConfig } from "#math/sns/throughput";
 import { SERVICE_COLORS } from "../../colors";
 import { serviceIcon } from "../../icons";
@@ -97,6 +97,8 @@ const PubSubFanout = ({ subscribers, color }: { subscribers: number; color: stri
 
 const SNS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   const [config, patch, nodeId] = useNodeConfig<SNSConfig>(ServiceType.SNS, SNS_DEFAULTS, id);
+  const { edges } = useGraph();
+  const subscribers = Math.max(1, edges.filter((e) => e.from === nodeId).length);
 
   return (
     <Node
@@ -105,18 +107,9 @@ const SNS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       name="SNS"
       icon={serviceIcon("sns.svg")}
       style={style}
-      visibleChildren={<PubSubFanout subscribers={config.subscribers} color={SERVICE_COLORS[ServiceType.SNS]} />}
+      visibleChildren={<PubSubFanout subscribers={subscribers} color={SERVICE_COLORS[ServiceType.SNS]} />}
     >
-      <Slider
-        label="Subscribers"
-        min={1}
-        max={10}
-        step={1}
-        decimals={0}
-        defaultValue={SNS_DEFAULTS.subscribers}
-        value={config.subscribers}
-        onChange={(subscribers) => patch({ subscribers })}
-      />
+      <Boolean label="FIFO topic" checked={config.fifo} onChange={(fifo) => patch({ fifo })} />
     </Node>
   );
 };

@@ -163,7 +163,7 @@ export default function Node({
           <div
             draggable={!!id}
             onDragStart={(e) => id && startGraphDrag(e, { nodeId: id, metric: Metric.Served, name: shownName, color })}
-            className="cursor-grab active:cursor-grabbing"
+            className="cursor-grab active:cursor-grabbing rounded bg-emerald-950/30 border border-emerald-900/30 px-1 pt-1"
           >
             <SparkAreaChart
               data={series}

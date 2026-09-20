@@ -87,34 +87,34 @@ export default function Graph({ chartdata = [], fill = false, color = "#693cc5",
   const displayDate = currentItem ? currentItem.time : "--"
 
   return (
-    <Card className={classNames("bg-[#0a0a0a] border-[#1f1f1f] text-white", fill ? "w-full h-full" : "w-full")}>
+    <Card className={classNames("bg-[#0d0d0d] border-[#1a1a1a] text-white p-4", fill ? "w-full h-full" : "w-full")}>
       <div ref={containerRef} className={classNames("w-full h-full flex", isLowHeight ? "flex-row items-center gap-6" : "flex-col")}>
         <div className={classNames(isLowHeight ? "shrink-0 w-1/3 min-w-[150px]" : "")}>
-          <p className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
-            {title} {!payload && <span className="text-[10px] text-amber-500 normal-case ml-1">(Peak Period)</span>}
+          <p className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
+            {title} {!payload && <span className="text-amber-400 normal-case ml-1">(Peak)</span>}
           </p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-white">
+          <p className="mt-1.5 text-2xl font-bold tracking-tight text-emerald-400">
             {displayValue}
-            {unit && <span className="ml-1 text-base font-medium text-neutral-400">{unit}</span>}
+            {unit && <span className="ml-1 text-sm font-medium text-neutral-500">{unit}</span>}
           </p>
-          <p className="mt-1 flex items-baseline justify-between">
-            <span className="text-sm text-neutral-400">Tick {displayDate}</span>
+          <p className="mt-1 flex items-baseline justify-between gap-2">
+            <span className="text-xs text-neutral-600">Tick {displayDate}</span>
             <span
               className={classNames(
-                "rounded px-2 py-0.5 text-xs font-semibold",
-                !payload ? "text-neutral-400 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/40" : "text-red-400 bg-red-950/40",
+                "rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                !payload ? "text-neutral-500 bg-neutral-900" : percentageChange > 0 ? "text-emerald-400 bg-emerald-950/60" : "text-red-400 bg-red-950/50",
               )}
             >
-              {payload ? formatChange(payload, percentageChange, absoluteChange) : `Max ${title}`}
+              {payload ? formatChange(payload, percentageChange, absoluteChange) : `Max`}
             </span>
           </p>
         </div>
 
         <AreaChart
           className={classNames(
-            "text-white flex-1 min-w-0",
+            "text-white flex-1 min-w-0 [&_.recharts-cartesian-axis-tick-value]:fill-neutral-600",
             fill ? "h-full min-h-0" : "h-80",
-            isLowHeight ? "mt-0 pl-4" : "mt-6",
+            isLowHeight ? "mt-0 pl-4" : "mt-4",
           )}
           data={chartdata}
           index="time"

@@ -64,6 +64,7 @@ function GridEvents({ items, onChange }: GridEventsProps) {
     onChangeRef.current = onChange
   }, [onChange])
 
+  // Sync add/remove widgets imperatively when items state changes
   useEffect(() => {
     if (!grid) return
 
@@ -97,32 +98,39 @@ function GridEvents({ items, onChange }: GridEventsProps) {
     toRemove.forEach((n) => {
       if (n.el) grid.removeWidget(n.el)
     })
+  }, [grid, items])
 
-    const updateBounds = () => {
-      const height = grid.el.clientHeight
+  // Observe the PARENT container to resize cell heights — never the grid itself
+  // (grid.el height is controlled by its children, so reading it is circular)
+  useEffect(() => {
+    if (!grid) return
+
+    const container = grid.el.parentElement
+    if (!container) return
+
+    const updateCellHeight = () => {
+      const height = container.clientHeight
       if (height <= 0) return
-
-      // Find the maximum logical row any widget reaches
       const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
-
-      // Dynamically size the cells so they perfectly fill the visible height
-      const newCellHeight = Math.floor(height / maxRows)
-      grid.cellHeight(newCellHeight)
+      const cellH = Math.floor(height / maxRows)
+      grid.cellHeight(cellH, false) // false = don't force re-layout during resize
     }
 
-    updateBounds()
+    updateCellHeight()
 
-    const observer = new ResizeObserver(updateBounds)
-    observer.observe(grid.el)
+    const observer = new ResizeObserver(updateCellHeight)
+    observer.observe(container)
 
-    grid.on("added removed change", updateBounds)
+    // Also recalculate when widgets are added/moved/resized
+    grid.on("added removed resizestop dragstop", updateCellHeight)
 
     return () => {
       observer.disconnect()
-      grid.off("added removed change", updateBounds)
+      grid.off("added removed resizestop dragstop", updateCellHeight)
     }
-  }, [grid, items])
+  }, [grid])
 
+  // Propagate layout changes back to parent state
   useEffect(() => {
     if (!grid) return
 
@@ -167,11 +175,10 @@ interface DockedGraphPanelProps {
 }
 
 export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
-  const gridRef = useRef<HTMLDivElement>(null)
-
   const options = useMemo<GridStackOptions>(
     () => ({
       column: COLUMNS,
+      // Start with a reasonable fixed cell height; updateCellHeight will correct it
       cellHeight: 48,
       margin: 0,
       float: true,
@@ -185,7 +192,8 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
   )
 
   return (
-    <div ref={gridRef} className="grid-stack h-full w-full">
+    // This div is the container we observe — it has h-full from CSS
+    <div className="h-full w-full">
       <GridStack
         options={options}
         components={{

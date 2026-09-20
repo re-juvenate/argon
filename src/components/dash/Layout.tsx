@@ -53,6 +53,7 @@ import { graphStore, useGraph } from "#graph"
 import { SimulationProvider } from "./Simulation"
 import SimulationBar from "./SimulationBar"
 import GraphIo from "./GraphIo"
+import BlenderAddMenu from "./BlenderAddMenu"
 import type { GraphNode } from "#graph/types"
 
 const at = (left: number, top: number): CSSProperties => ({
@@ -311,6 +312,65 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
     }
   }, [deleteSelected])
 
+  // Blender-style "cursor follow" for duplicated node
+  useEffect(() => {
+    if (!blenderDragNodeId) return
+
+    const move = (e: MouseEvent) => {
+      const board = document.querySelector("[data-island-board]") as HTMLElement
+      if (!board) return
+      const rect = board.getBoundingClientRect()
+      const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
+      const x = (e.clientX - rect.left) / scale - 32
+      const y = (e.clientY - rect.top) / scale - 32
+      graphStore.setPosition(blenderDragNodeId, { x, y })
+    }
+
+    const commit = (e: MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const board = document.querySelector("[data-island-board]") as HTMLElement
+      if (!board) return
+      const rect = board.getBoundingClientRect()
+      const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
+      const x = (e.clientX - rect.left) / scale - 32
+      const y = (e.clientY - rect.top) / scale - 32
+      const frame = document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .map((el) => (el as HTMLElement).closest<HTMLElement>("[data-frame]"))
+        .find((el) => el && el.dataset.frame !== blenderDragNodeId)
+      const parentId = frame?.dataset.frame ?? null
+      graphStore.place(blenderDragNodeId, { x, y }, parentId)
+      setBlenderDragNodeId(null)
+    }
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        graphStore.removeNode(blenderDragNodeId)
+        setBlenderDragNodeId(null)
+      }
+    }
+
+    let hasMoved = false
+    window.addEventListener("mousemove", move)
+    // Only arm the commit listener once the pointer has moved at least a few pixels,
+    // so the pointerup/click that closed the context menu doesn't immediately commit placement.
+    const armOnMove = () => {
+      if (hasMoved) return
+      hasMoved = true
+      window.addEventListener("click", commit, { capture: true })
+    }
+    window.addEventListener("mousemove", armOnMove)
+    window.addEventListener("keydown", onKey)
+
+    return () => {
+      window.removeEventListener("mousemove", move)
+      window.removeEventListener("mousemove", armOnMove)
+      window.removeEventListener("click", commit, { capture: true })
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [blenderDragNodeId])
+
   const onBoardContextMenu = useCallback(
     (e: ReactMouseEvent) => {
       const island = (e.target as HTMLElement).closest<HTMLElement>("[data-island-id]")
@@ -349,6 +409,23 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
           value: node.name ?? node.service,
           placeholder: node.service,
           onCommit: (name) => graphStore.renameNode(node.id, name || undefined),
+        },
+      },
+      {
+        label: "Duplicate",
+        icon: <Copy />,
+        onSelect: () => {
+          const original = graphStore.get().nodes.find((n) => n.id === node.id)
+          if (!original) return
+          const newId = graphStore.addNode(
+            original.service,
+            { x: (original.position?.x ?? 0) + 24, y: (original.position?.y ?? 0) + 24 },
+            original.parentId ?? null,
+          )
+          // Copy config over
+          graphStore.setConfig(newId, { ...(original.config ?? {}) })
+          setBlenderDragNodeId(newId)
+          setMenu(null)
         },
       },
       { label: "Add to graph menu", icon: <ChartLineIcon />, onSelect: () => dock(payload(Metric.Served)) },
@@ -624,27 +701,26 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       )}
 
       {addMenu && (
-        <ContextMenu
+        <BlenderAddMenu
           at={addMenu}
           items={PALETTE.map((item) => ({
             label: SERVICE_LABELS[item.service] || item.service,
-            icon: item.icon ? <img src={item.icon} alt="" className="w-4 h-4 object-contain" /> : undefined,
+            icon: item.icon,
+            category: SERVICE_CATEGORIES[item.service] || "Other",
             onSelect: () => {
               const board = document.querySelector("[data-island-board]") as HTMLElement
-              if (board) {
-                const rect = board.getBoundingClientRect()
-                const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
-                const frame = document
-                  .elementsFromPoint(addMenu.x, addMenu.y)
-                  .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
-                  .find(Boolean)
-                const parentId = frame?.dataset.frame ?? null
-                const x = (addMenu.x - rect.left) / scale - 32
-                const y = (addMenu.y - rect.top) / scale - 32
-                graphStore.addNode(item.service, { x, y }, parentId)
-              }
-              setAddMenu(null)
-            }
+              if (!board) return
+              const rect = board.getBoundingClientRect()
+              const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
+              const frame = document
+                .elementsFromPoint(addMenu.x, addMenu.y)
+                .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
+                .find(Boolean)
+              const parentId = frame?.dataset.frame ?? null
+              const x = (addMenu.x - rect.left) / scale - 32
+              const y = (addMenu.y - rect.top) / scale - 32
+              graphStore.addNode(item.service, { x, y }, parentId)
+            },
           }))}
           onClose={() => setAddMenu(null)}
         />

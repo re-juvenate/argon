@@ -50,14 +50,44 @@ const Client = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         </>
         <>
           <Slider
-            label="Noise Factor"
+            label="Requests / s"
+            min={1}
+            max={100000}
+            step={1}
+            decimals={0}
+            defaultValue={CLIENT_DEFAULTS.rps}
+            value={config.rps}
+            onChange={(rps) => patch({ rps })}
+          />
+          <Slider
+            label="Avg Request (bytes)"
+            min={64}
+            max={1048576}
+            step={64}
+            decimals={0}
+            defaultValue={CLIENT_DEFAULTS.avgBytes}
+            value={config.avgBytes}
+            onChange={(avgBytes) => patch({ avgBytes })}
+          />
+          <Slider
+            label="Noise Min (multiplier)"
             min={0}
-            max={10}
+            max={5}
             step={0.1}
             decimals={1}
-            defaultValue={CLIENT_DEFAULTS.noiseFactor}
-            value={config.noiseFactor}
-            onChange={(noiseFactor) => patch({ noiseFactor })}
+            defaultValue={CLIENT_DEFAULTS.noiseMin}
+            value={config.noiseMin}
+            onChange={(noiseMin) => patch({ noiseMin })}
+          />
+          <Slider
+            label="Noise Max (multiplier)"
+            min={0}
+            max={5}
+            step={0.1}
+            decimals={1}
+            defaultValue={CLIENT_DEFAULTS.noiseMax}
+            value={config.noiseMax}
+            onChange={(noiseMax) => patch({ noiseMax })}
           />
         </>
       </EnumDropdown>

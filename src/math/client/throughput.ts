@@ -4,18 +4,21 @@ import { bytes, KiB, offered, pipe, resolve, splitEven, toMbps } from "../utilit
 export interface ClientConfig {
   rps?: number;
   avgBytes?: number;
-  noiseFactor?: number;
+  noiseMin?: number;
+  noiseMax?: number;
 }
 
 export const CLIENT_DEFAULTS: Required<ClientConfig> = { 
   rps: 100, 
   avgBytes: 4 * KiB,
-  noiseFactor: 1.0,
+  noiseMin: 0.5,
+  noiseMax: 1.5,
 };
 
-export const sourceMbps = (config?: ClientConfig) => {
+export const sourceMbps = (config?: ClientConfig, randomize = false) => {
   const c = resolve(CLIENT_DEFAULTS, config);
-  return toMbps(c.rps * c.noiseFactor, bytes(c.avgBytes));
+  const factor = randomize ? c.noiseMin + Math.random() * (c.noiseMax - c.noiseMin) : 1.0;
+  return toMbps(c.rps * factor, bytes(c.avgBytes));
 };
 
 export const model: ServiceModel<ClientConfig> = {
@@ -26,7 +29,9 @@ export const model: ServiceModel<ClientConfig> = {
   },
 
   evaluate(config) {
-    const source = sourceMbps(config);
-    return (ctx) => pipe(offered(ctx, ModelTier.Assumed, source), splitEven(ctx.outputCount));
+    return (ctx) => {
+      const source = sourceMbps(config, true);
+      return pipe(offered(ctx, ModelTier.Assumed, source), splitEven(ctx.outputCount));
+    };
   },
 };

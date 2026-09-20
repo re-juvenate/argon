@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
+import { Sun, Moon } from "@phosphor-icons/react"
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(useGSAP)
@@ -17,8 +18,7 @@ interface NavLinkItem {
 
 const NAV_LINKS: NavLinkItem[] = [
   { label: "Home", href: "/" },
-  { label: "Work", href: "/work" },
-  { label: "Universe", href: "/universe" },
+  { label: "Graph", href: "/graph" },
   { label: "Contact", href: "/contact" },
 ]
 
@@ -28,15 +28,13 @@ interface SocialLinkItem {
 }
 
 const SOCIAL_LINKS: SocialLinkItem[] = [
-  { label: "LinkedIn", href: "https://linkedin.com" },
-  { label: "Instagram", href: "https://instagram.com" },
+  { label: "GitHub", href: "https://github.com" },
+  { label: "YouTube", href: "https://youtube.com" },
   { label: "X / Twitter", href: "https://x.com" },
 ]
 
 interface NewsItem {
   source: string
-  date: string
-  year: number
   description: string
   type: string
   href: string
@@ -45,40 +43,32 @@ interface NewsItem {
 
 const NEWS: NewsItem[] = [
   {
-    source: "Awwwards",
-    date: "Jun. 7",
-    year: 2026,
-    description: "Argon",
-    type: "Award",
+    source: "Blog",
+    description: "How we built an interactive AWS simulator using React and GSAP.",
+    type: "Article",
     href: "#",
-    logo: { text: "w.", className: "bg-[#ff5a26] text-white text-8xl font-black" },
+    logo: { text: "Blog", className: "bg-blue-600 text-white text-3xl font-bold" },
   },
   {
-    source: "Forbes",
-    date: "May. 5",
-    year: 2026,
-    description: "Teenagers Are Earning Six Figures Behind The Scenes Of The Creator Economy.",
-    type: "Publication",
+    source: "YouTube",
+    description: "Argon 1.0 Demo: Simulating Cloud Architectures in Real-time.",
+    type: "Video",
     href: "#",
-    logo: { text: "Forbes", className: "bg-neutral-900 text-white text-4xl font-serif font-bold" },
+    logo: { text: "▶", className: "bg-red-600 text-white text-6xl" },
   },
   {
-    source: "Billboard",
-    date: "Apr. 20",
-    year: 2026,
-    description: 'Our very own Themis "Reit" Chrysafidis was recently featured on Billboard.',
-    type: "Publication",
-    href: "#",
-    logo: { text: "billboard", className: "bg-white text-black text-3xl font-black tracking-tight" },
+    source: "GitHub",
+    description: "Argon is now open source! Check out the repository and contribute.",
+    type: "Release",
+    href: "https://github.com",
+    logo: { text: "GH", className: "bg-neutral-800 text-white text-6xl font-black" },
   },
   {
-    source: "Your Creative Media",
-    date: "Mar. 6",
-    year: 2026,
-    description: "Stüssy concept design featured by Your Creative Media.",
-    type: "Feature",
-    href: "#",
-    logo: { text: "S", className: "bg-black text-white text-7xl font-black" },
+    source: "Twitter",
+    description: "Follow us for the latest updates, sneak peeks, and architecture tips.",
+    type: "Social",
+    href: "https://x.com",
+    logo: { text: "𝕏", className: "bg-black text-white text-7xl font-bold" },
   },
 ]
 
@@ -126,7 +116,7 @@ const CloseIcon = ({ className = "size-5" }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-const NewsCard = ({ source, date, year, description, type, href, logo }: NewsItem) => (
+const NewsCard = ({ source, description, type, href, logo }: NewsItem) => (
   <Notched
     as="a"
     href={href}
@@ -137,14 +127,11 @@ const NewsCard = ({ source, date, year, description, type, href, logo }: NewsIte
       <div>
         <h3 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
           {source}
-          <ArrowRight className="size-4" />
-          <span>
-            {date} <em className="text-base font-normal">({year})</em>
-          </span>
+          <ArrowRight className="size-4 opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
         </h3>
         <p className="mt-2 max-w-[38ch] text-sm leading-tight text-neutral-400">{description}</p>
       </div>
-      <span className="text-sm text-neutral-500">({type})</span>
+      <span className="text-sm text-neutral-500">{type}</span>
     </div>
 
     <div className={`grid aspect-square h-full max-h-[169px] shrink-0 place-items-center rounded-2xl ${logo.className}`}>{logo.text}</div>
@@ -166,11 +153,36 @@ const NavLink = ({ label, href, onClick }: NavLinkItem & { onClick: () => void }
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
+  const [isDark, setIsDark] = useState(true)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const timeline = useRef<gsap.core.Timeline | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains("dark") || 
+                       (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    
+    setIsDark(isDarkMode)
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const newDark = !isDark
+    setIsDark(newDark)
+    if (newDark) {
+      document.documentElement.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }
 
   const close = () => setOpen(false)
 
@@ -203,13 +215,17 @@ export default function Navbar() {
     timeline.current?.[open ? "play" : "reverse"]()
     if (!open) return
 
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
     const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && close()
+    
     document.addEventListener("keydown", onKeyDown)
     document.body.style.overflow = "hidden"
+    document.body.style.paddingRight = `${scrollbarWidth}px`
 
     return () => {
       document.removeEventListener("keydown", onKeyDown)
       document.body.style.overflow = ""
+      document.body.style.paddingRight = ""
     }
   }, [open])
 
@@ -219,16 +235,26 @@ export default function Navbar() {
         <a href="/" className="text-lg font-semibold tracking-tight">
           {BRAND}
         </a>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-expanded={open}
-          aria-controls="site-menu"
-          className="text-lg font-medium tracking-tight hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-        >
-          Menu
-        </button>
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            aria-label="Toggle dark mode"
+          >
+            {isDark ? <Sun className="w-5 h-5" weight="bold" /> : <Moon className="w-5 h-5" weight="bold" />}
+          </button>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-expanded={open}
+            aria-controls="site-menu"
+            className="text-lg font-medium tracking-tight hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            Menu
+          </button>
+        </div>
       </header>
 
       <div

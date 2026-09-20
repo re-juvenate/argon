@@ -11,3 +11,12 @@ export const serviceIcon = (service: ServiceIcon): string | undefined => {
   const path = Object.keys(urls).find((key) => key.endsWith(`/${service}`))
   return path ? urls[path].default : undefined
 }
+
+/** Array of all available service icons with their resolved URLs */
+export const allServiceIcons = Object.entries(urls).map(([path, mod]) => {
+  const name = path.split("/").pop()!
+  return {
+    name,
+    url: mod.default,
+  }
+})

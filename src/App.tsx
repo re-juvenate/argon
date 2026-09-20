@@ -1,6 +1,6 @@
 import Layout from "./components/dash/Layout"
 import Graph, { type ChartDataItem } from "./components/dash/nodeoptions/graph"
-import AwsMap from "./components/dash/Map"
+import AwsMap from "./components/modals/Map"
 const App = () => {
   const mockChartData: ChartDataItem[] = [
     { time: "10:00", Throughput: 120, Time: 45 },
@@ -13,9 +13,9 @@ const App = () => {
   ]
 
   return (
-    <div className="bg-background min-h-screen w-screen">
-      <Layout />
-      {/*<AwsMap />*/}
+    <div className="bg-background h-screen w-screen overflow-hidden">
+      {/*<Layout />*/}
+      <AwsMap />
       {/*<Graph chartdata={mockChartData} />*/}
     </div>
   )

@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from agent.router import router as agent_router
 from deploy.router import router as deploy_router
@@ -19,6 +22,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Backend", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(agent_router)
 app.include_router(deploy_router)

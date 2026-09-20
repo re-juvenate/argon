@@ -1,9 +1,6 @@
 import { ModelTier, type LatencyModel } from "../../types/math";
-import { ms, mmc, offeredMbps, sizeOf, start, toRps, wait } from "../utilities";
-import { RDS_ASSUMED, RDS_DEFAULTS, type RDSConfig } from "./throughput";
-
-// M/M/c over the connection pool: μ = 1/queryMs per connection.
-// Spec: reduced-formulas-latency (queueing §2.1)
+import { mmc, ms, note, offeredMbps, pipe, resolve, sizeOf, start, toRps, wait } from "../utilities";
+import { connectionRate, RDS_ASSUMED, RDS_DEFAULTS, type RDSConfig } from "./throughput";
 
 export const model: LatencyModel<RDSConfig> = {
   defaults: RDS_DEFAULTS,
@@ -12,9 +9,12 @@ export const model: LatencyModel<RDSConfig> = {
     const c = resolve(RDS_DEFAULTS, config);
     return (ctx) => {
       const lambda = toRps(offeredMbps(ctx), sizeOf(ctx, RDS_ASSUMED.queryBytes));
-      const mu = 1000 / c.queryMs;
-      const q = mmc(lambda, mu, c.maxConnections);
-      return wait(q, c.maxConnections)(start(ms(c.queryMs), ModelTier.Estimated));
+      const q = mmc(lambda, connectionRate(c), c.maxConnections);
+      return pipe(
+        start(ms(c.queryMs), ModelTier.Estimated),
+        wait(q, c.maxConnections),
+        note(`M/M/${c.maxConnections}: one query per connection, ${c.queryMs} ms service`),
+      );
     };
   },
 };

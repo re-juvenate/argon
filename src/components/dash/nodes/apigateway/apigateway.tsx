@@ -2,8 +2,9 @@ import type { CSSProperties } from "react";
 import Node from "../../Node";
 import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
+import Dropdown from "../../nodeoptions/dropdown";
 import Slider from "../../nodeoptions/slider";
-import { APIGATEWAY_DEFAULTS, type ApiGatewayConfig } from "#math/apigateway/throughput";
+import { APIGATEWAY_DEFAULTS, ApiType, type ApiGatewayConfig } from "#math/apigateway/throughput";
 import { SERVICE_COLORS } from "../../colors";
 import { serviceIcon } from "../../icons";
 
@@ -18,6 +19,11 @@ const ApiGateway = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("apigateway.svg")}
       style={style}
     >
+      <Dropdown
+        label="API Type"
+        options={Object.values(ApiType).map((name) => ({ name, onSelect: () => patch({ apiType: name }) }))}
+        value={config.apiType}
+      />
       <Slider
         label="Rate Limit (rps)"
         min={10}

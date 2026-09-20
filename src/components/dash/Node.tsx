@@ -20,7 +20,7 @@ interface NodeProps {
   color: string
   icon?: string
   graph?: any[]
-  cost?: number
+  cost?: string | number
   style?: CSSProperties
   id?: string
   sockets?: SocketType[]

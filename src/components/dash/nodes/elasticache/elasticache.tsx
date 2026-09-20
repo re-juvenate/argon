@@ -2,8 +2,9 @@ import type { CSSProperties } from "react";
 import Node from "../../Node";
 import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
+import Dropdown from "../../nodeoptions/dropdown";
 import Slider from "../../nodeoptions/slider";
-import { ELASTICACHE_DEFAULTS, type ElastiCacheConfig } from "#math/elasticache/throughput";
+import { CACHE_NODE_SPECS, ELASTICACHE_DEFAULTS, type ElastiCacheConfig } from "#math/elasticache/throughput";
 import { SERVICE_COLORS } from "../../colors";
 import { serviceIcon } from "../../icons";
 
@@ -18,6 +19,11 @@ const ElastiCache = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       icon={serviceIcon("elasticache.svg")}
       style={style}
     >
+      <Dropdown
+        label="Node Type"
+        options={Object.keys(CACHE_NODE_SPECS).map((name) => ({ name, onSelect: () => patch({ nodeType: name }) }))}
+        value={config.nodeType}
+      />
       <Slider
         label="Nodes"
         min={1}

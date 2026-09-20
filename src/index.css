@@ -34,6 +34,13 @@
   box-shadow: 0 0 0 2px var(--color-blueprimary);
 }
 
+[data-suggested] > [data-id] {
+  opacity: 0.5;
+  pointer-events: none;
+  outline: 1px dashed var(--color-blueprimary);
+  outline-offset: 2px;
+}
+
 @utility no-scrollbar {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */

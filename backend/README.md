@@ -4,7 +4,8 @@ FastAPI service with a Pulumi connector that deploys EC2 or App Runner, optional
 
 ```sh
 uv sync
-uv run uvicorn main:app --app-dir src --reload
+cp .env.local.example .env.local   # fill GROQ_API_KEY etc.
+uv run --env-file .env.local uvicorn main:app --app-dir src --reload
 uv run pytest --cov=src
 ```
 
@@ -23,6 +24,34 @@ curl -X POST localhost:8000/deployments/ -H 'content-type: application/json' \
 curl localhost:8000/deployments/1
 curl -X DELETE localhost:8000/deployments/1
 ```
+
+## Graph completion (`/agent`)
+
+Strands agent on Groq (OpenAI-compatible endpoint, strict JSON-schema
+structured output — needs a model that supports it, `openai/gpt-oss-120b`
+by default). Each browser gets a JWT session; the conversation is kept by
+Strands' `FileSessionManager` under `SESSION_DIR`, so repeated completions
+continue the same thread.
+
+| Env var               | Default                              | Purpose                          |
+| --------------------- | ------------------------------------ | -------------------------------- |
+| `GROQ_API_KEY`        | unset                                | Groq key                         |
+| `GROQ_MODEL`          | `openai/gpt-oss-120b`                | Must support strict json_schema  |
+| `GROQ_BASE_URL`       | `https://api.groq.com/openai/v1`     |                                  |
+| `SESSION_SECRET`      | random per process                   | JWT HMAC secret (set in prod)    |
+| `SESSION_TTL_SECONDS` | `86400`                              |                                  |
+| `SESSION_DIR`         | `<tmp>/argon-sessions`               | Strands session files            |
+| `CORS_ORIGINS`        | `http://localhost:5173`              | Comma-separated                  |
+
+```sh
+curl -X POST localhost:8000/agent/session          # -> {token, session_id, expires_in}; also sets a `session` cookie
+curl -X POST localhost:8000/agent/complete -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"graph":{"version":1,"nodes":[{"id":"c","service":"client","config":{},"position":{"x":0,"y":0}}],"edges":[]},"prompt":"add a web tier"}'
+```
+
+The response carries the merged `graph` plus `added.{nodes,edges}` (validated:
+new ids only, edges between existing/new non-frame nodes, ASG members
+edge-free) for the UI to overlay.
 
 ## Freeform runner (`/runs`)
 

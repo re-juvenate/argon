@@ -13,6 +13,7 @@ export interface GraphNode {
   config: Record<string, unknown>
   position?: Position
   parentId?: string
+  suggested?: boolean
 }
 
 export interface GraphEdge {
@@ -20,6 +21,7 @@ export interface GraphEdge {
   from: string
   to: string
   avgBytes?: number
+  suggested?: boolean
 }
 
 export interface GlobalDefaults {
@@ -59,6 +61,7 @@ export const graphNodeSchema = z.object({
   config: z.record(z.string(), z.unknown()).default({}),
   position: positionSchema.optional(),
   parentId: z.string().min(1).optional(),
+  suggested: z.boolean().optional(),
 })
 
 export const graphEdgeSchema = z.object({
@@ -66,6 +69,7 @@ export const graphEdgeSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   avgBytes: z.number().positive().optional(),
+  suggested: z.boolean().optional(),
 })
 
 export const globalDefaultsSchema = z.object({

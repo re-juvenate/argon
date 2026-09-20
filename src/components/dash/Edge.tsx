@@ -354,7 +354,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
     <EdgeCtx.Provider value={api}>
       <svg ref={svgRef} className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
         {edges.map((edge) => (
-          <g key={edge.id}>
+          <g key={edge.id} opacity={edge.suggested ? 0.5 : 1}>
             <path
               ref={(el) => {
                 if (el) {
@@ -367,7 +367,7 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
               fill="none"
               stroke="transparent"
               strokeWidth={14}
-              className="pointer-events-auto cursor-pointer"
+              className={edge.suggested ? "pointer-events-none" : "pointer-events-auto cursor-pointer"}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation()

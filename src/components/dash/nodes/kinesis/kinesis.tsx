@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
 import { useNodeConfig } from "#graph";
 import { ServiceType } from "../../../../types/math";
+import Boolean from "../../nodeoptions/boolean";
 import Slider from "../../nodeoptions/slider";
 import { KINESIS_DEFAULTS, type KinesisConfig } from "#math/kinesis/throughput";
 import { SERVICE_COLORS } from "../../colors";
@@ -80,7 +81,7 @@ const Kinesis = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       name="Kinesis"
       icon={serviceIcon("kinesis.svg")}
       style={style}
-      visibleChildren={<ShardStreams shards={config.shards} color={SERVICE_COLORS[ServiceType.Kinesis]} />}
+      visibleChildren={<ShardStreams shards={config.shards ?? KINESIS_DEFAULTS.shards} color={SERVICE_COLORS[ServiceType.Kinesis]} />}
     >
       <Slider
         label="Shards"
@@ -92,6 +93,7 @@ const Kinesis = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         value={config.shards}
         onChange={(shards) => patch({ shards })}
       />
+      <Boolean label="Enhanced fan-out" checked={config.enhancedFanOut} onChange={(enhancedFanOut) => patch({ enhancedFanOut })} />
     </Node>
   );
 };

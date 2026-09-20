@@ -113,7 +113,7 @@ function GridEvents({ items, onChange }: GridEventsProps) {
       if (height <= 0) return
       const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
       const cellH = Math.floor(height / maxRows)
-      grid.cellHeight(cellH, false) // false = don't force re-layout during resize
+      grid.cellHeight(cellH)
     }
 
     updateCellHeight()
@@ -121,12 +121,11 @@ function GridEvents({ items, onChange }: GridEventsProps) {
     const observer = new ResizeObserver(updateCellHeight)
     observer.observe(container)
 
-    // Also recalculate when widgets are added/moved/resized
     grid.on("added removed resizestop dragstop", updateCellHeight)
 
     return () => {
       observer.disconnect()
-      grid.off("added removed resizestop dragstop", updateCellHeight)
+      grid.off("added removed resizestop dragstop")
     }
   }, [grid])
 
@@ -178,12 +177,10 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
   const options = useMemo<GridStackOptions>(
     () => ({
       column: COLUMNS,
-      // Start with a reasonable fixed cell height; updateCellHeight will correct it
       cellHeight: 48,
       margin: 0,
       float: true,
       animate: true,
-      draggable: true,
       resizable: {
         handles: "se,sw,ne,nw,n,s,e,w",
       },

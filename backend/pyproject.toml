@@ -12,6 +12,8 @@ dependencies = [
     "uvicorn>=0.53.0",
     "pulumi>=3",
     "pulumi-aws>=6",
+    "strands-agents[openai]>=1.56.0",
+    "pyjwt>=2.14.0",
 ]
 
 [dependency-groups]

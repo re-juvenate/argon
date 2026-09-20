@@ -33,6 +33,8 @@ import { model as dynamodb } from "./dynamodb/throughput";
 import { model as sns } from "./sns/throughput";
 import { model as elasticache } from "./elasticache/throughput";
 import { model as kinesis } from "./kinesis/throughput";
+import { model as ebs } from "./ebs/throughput";
+import { model as efs } from "./efs/throughput";
 import { model as ec2Latency } from "./ec2/latency";
 import { model as ecsLatency } from "./ecs/latency";
 import { model as asgLatency } from "./asg/latency";
@@ -52,6 +54,8 @@ import { model as dynamodbLatency } from "./dynamodb/latency";
 import { model as snsLatency } from "./sns/latency";
 import { model as elasticacheLatency } from "./elasticache/latency";
 import { model as kinesisLatency } from "./kinesis/latency";
+import { model as ebsLatency } from "./ebs/latency";
+import { model as efsLatency } from "./efs/latency";
 import { model as ec2Drop } from "./ec2/drop";
 import { model as ecsDrop } from "./ecs/drop";
 import { model as asgDrop } from "./asg/drop";
@@ -71,6 +75,8 @@ import { model as dynamodbDrop } from "./dynamodb/drop";
 import { model as snsDrop } from "./sns/drop";
 import { model as elasticacheDrop } from "./elasticache/drop";
 import { model as kinesisDrop } from "./kinesis/drop";
+import { model as ebsDrop } from "./ebs/drop";
+import { model as efsDrop } from "./efs/drop";
 
 // Per-service registries, one per objective (throughput, latency, drop), keyed by ServiceType.
 // Registry instead of a switch: `satisfies` makes it exhaustive over ServiceType while keeping
@@ -86,8 +92,8 @@ export const THROUGHPUT_MODELS = {
   [ServiceType.CloudFront]: cloudfront,
   [ServiceType.Route53]: route53,
   [ServiceType.Aurora]: aurora,
-  [ServiceType.EBS]: s3,
-  [ServiceType.EFS]: s3,
+  [ServiceType.EBS]: ebs,
+  [ServiceType.EFS]: efs,
   [ServiceType.Client]: client,
   [ServiceType.Region]: region,
   [ServiceType.VPC]: vpc,
@@ -133,8 +139,8 @@ export const LATENCY_MODELS = {
   [ServiceType.CloudFront]: cloudfrontLatency,
   [ServiceType.Route53]: route53Latency,
   [ServiceType.Aurora]: auroraLatency,
-  [ServiceType.EBS]: s3Latency,
-  [ServiceType.EFS]: s3Latency,
+  [ServiceType.EBS]: ebsLatency,
+  [ServiceType.EFS]: efsLatency,
   [ServiceType.Client]: clientLatency,
   [ServiceType.Region]: regionLatency,
   [ServiceType.VPC]: vpcLatency,
@@ -171,8 +177,8 @@ export const DROP_MODELS = {
   [ServiceType.CloudFront]: cloudfrontDrop,
   [ServiceType.Route53]: route53Drop,
   [ServiceType.Aurora]: auroraDrop,
-  [ServiceType.EBS]: s3Drop,
-  [ServiceType.EFS]: s3Drop,
+  [ServiceType.EBS]: ebsDrop,
+  [ServiceType.EFS]: efsDrop,
   [ServiceType.Client]: clientDrop,
   [ServiceType.Region]: regionDrop,
   [ServiceType.VPC]: vpcDrop,

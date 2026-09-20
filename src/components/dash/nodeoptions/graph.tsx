@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, type CSSProperties } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { AreaChart, Card } from "@tremor/react"
 
 export interface ChartDataItem {
@@ -34,7 +34,7 @@ function formatChange(payload: any, percentageChange: number, absoluteChange: nu
   return `${formattedPercentage} (${formattedAbsolute})`
 }
 
-export default function Graph({ chartdata = [], fill = false, color = "#693cc5", title = "Throughput", unit = "" }: GraphProps) {
+export default function Graph({ chartdata = [], fill = false, title = "Throughput", unit = "" }: GraphProps) {
   const [hoverData, setHoverData] = useState<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isLowHeight, setIsLowHeight] = useState(false)

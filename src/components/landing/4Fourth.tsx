@@ -1,4 +1,3 @@
-import React from "react"
 import { MagneticImageTrail } from "./elements/imageTrail"
 
 const Fourth = () => {

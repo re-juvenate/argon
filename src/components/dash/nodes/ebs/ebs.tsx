@@ -6,28 +6,18 @@ import { SERVICE_COLORS } from "../../colors"
 import { serviceIcon } from "../../icons"
 import Dropdown from "../../nodeoptions/dropdown"
 import Slider from "../../nodeoptions/slider"
-
-interface EBSConfig {
-  volumeType: string
-  sizeGb: number
-  iops: number
-}
-
-const EBS_DEFAULTS: EBSConfig = {
-  volumeType: "gp3",
-  sizeGb: 100,
-  iops: 3000,
-}
+import { EBS_DEFAULTS, VolumeType, type EBSConfig } from "#math/ebs/throughput"
 
 const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
   const [config, patch, nodeId] = useNodeConfig<EBSConfig>(ServiceType.EBS, EBS_DEFAULTS, id)
 
-  const typeOptions = ["gp3", "gp2", "io1", "io2", "st1", "sc1"].map((name) => ({
+  const typeOptions = Object.values(VolumeType).map((name) => ({
     name,
     onSelect: () => patch({ volumeType: name }),
   }))
 
   const c = { ...EBS_DEFAULTS, ...config }
+  const provisioned = [VolumeType.GP3, VolumeType.IO1, VolumeType.IO2].includes(c.volumeType)
 
   return (
     <Node
@@ -39,19 +29,37 @@ const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
     >
       <Dropdown label="Volume Type" options={typeOptions} value={c.volumeType} />
       <Slider
-        label="Size (GB)"
+        label="Size (GiB)"
         min={1}
         max={16000}
+        step={1}
+        decimals={0}
+        defaultValue={EBS_DEFAULTS.sizeGb}
         value={c.sizeGb}
-        onChange={(v) => patch({ sizeGb: v })}
+        onChange={(sizeGb) => patch({ sizeGb })}
       />
-      {["gp3", "io1", "io2"].includes(c.volumeType) && (
+      {provisioned && (
         <Slider
           label="Provisioned IOPS"
-          min={3000}
-          max={64000}
+          min={100}
+          max={c.volumeType === VolumeType.IO2 ? 256000 : c.volumeType === VolumeType.GP3 ? 80000 : 64000}
+          step={100}
+          decimals={0}
+          defaultValue={EBS_DEFAULTS.iops}
           value={c.iops}
-          onChange={(v) => patch({ iops: v })}
+          onChange={(iops) => patch({ iops })}
+        />
+      )}
+      {c.volumeType === VolumeType.GP3 && (
+        <Slider
+          label="Throughput (MiB/s)"
+          min={125}
+          max={2000}
+          step={5}
+          decimals={0}
+          defaultValue={EBS_DEFAULTS.throughputMiBps}
+          value={c.throughputMiBps}
+          onChange={(throughputMiBps) => patch({ throughputMiBps })}
         />
       )}
     </Node>

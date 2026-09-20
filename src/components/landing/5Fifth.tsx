@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react"
-import { ArrowRight, ArrowRightIcon } from "@phosphor-icons/react"
+import { useEffect, useRef } from "react"
+import { ArrowRightIcon } from "@phosphor-icons/react"
 
 const Fifth = () => {
   const containerRef = useRef<HTMLDivElement>(null)

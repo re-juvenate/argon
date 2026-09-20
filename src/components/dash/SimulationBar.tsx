@@ -4,13 +4,13 @@ import clsx from "clsx"
 import { graphStore, useGraph } from "#graph"
 import { useSimulationControls } from "./Simulation"
 
-const button = "grid size-9 place-items-center border border-border text-gray-200 transition-colors disabled:opacity-40 disabled:cursor-default"
+const button = "grid size-10 place-items-center text-lg border border-border text-gray-200 transition-colors disabled:opacity-40 disabled:cursor-default"
 const idle = "bg-neutral-800 hover:bg-neutral-700"
 const input =
-  "w-14 bg-neutral-900 border border-border px-1 py-0.5 text-center text-gray-200 font-mono text-[11px] outline-none focus:border-blueprimary"
+  "w-16 bg-neutral-900 border border-border px-1 py-0.5 text-center text-gray-200 font-mono text-[14px] outline-none focus:border-blueprimary"
 
 const Field = ({ label, children }: { label: string; children: ReactNode }) => (
-  <label className="flex flex-col items-center gap-0.5 text-[10px] uppercase tracking-wide text-neutral-500 select-none">
+  <label className="flex flex-col items-center gap-0.5 text-[13px] uppercase tracking-wide text-neutral-500 select-none">
     {label}
     {children}
   </label>
@@ -30,7 +30,7 @@ export default function SimulationBar() {
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
-      className="flex flex-col items-center gap-2 p-2 bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
+      className="flex flex-col items-center gap-2 p-2 min-w-14 w-max bg-neutral-950/90 border border-border shadow-lg shadow-black/40 backdrop-blur"
     >
       <button
         type="button"
@@ -48,7 +48,7 @@ export default function SimulationBar() {
       <button type="button" title="reset" onClick={reset} className={clsx(button, idle)}>
         <ArrowCounterClockwiseIcon weight="bold" />
       </button>
-      {tick !== 0 && <span className="font-mono text-[10px] text-neutral-500 select-none">t={tick}</span>}
+      {tick !== 0 && <span className="font-mono text-[13px] text-neutral-500 select-none">t={tick}</span>}
       <div className="h-px w-full bg-border" />
 
       <Field label="period s">

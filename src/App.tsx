@@ -1,7 +1,6 @@
 import { RouterProvider, createRouter, createRoute, createRootRoute, Outlet } from '@tanstack/react-router'
 import Layout from "./components/dash/Layout"
 import Landing from "./components/landing/landing"
-import ColorButton from "./components/dash/ColorButton"
 
 // Define the root route
 const rootRoute = createRootRoute({

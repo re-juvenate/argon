@@ -1,5 +1,5 @@
 import { ModelTier, type ServiceModel } from "../../types/math";
-import { mbps, note, offered, pipe, splitEven } from "../utilities";
+import { mbps, note, offered, pipe } from "../utilities";
 
 export interface VPCConfig {
   cidr?: string;
@@ -15,11 +15,6 @@ export const model: ServiceModel<VPCConfig> = {
   },
 
   evaluate() {
-    return (ctx) =>
-      pipe(
-        offered(ctx, ModelTier.Assumed),
-        splitEven(ctx.outputCount),
-        note("addressing boundary only: no data-plane cap (NAT Gateway 45 Gbps / Resolver 10k QPS not exposed)"),
-      );
+    return (ctx) => pipe(offered(ctx, ModelTier.Assumed), note("frame: no sockets, no data-plane cap; members inherit the Region hop"));
   },
 };

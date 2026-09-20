@@ -716,7 +716,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
               icon: <TrashIcon />,
               label: "Remove Graph",
               danger: true,
-              onClick: () => {
+              onSelect: () => {
                 setDocked((prev) => prev.filter((d) => d.id !== dockedMenu.id))
                 setDockedMenu(null)
               },

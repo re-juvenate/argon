@@ -1,4 +1,3 @@
-import React from "react"
 import { cn } from "cnfast"
 
 const Button = ({ label, onClick }: { label: string; onClick: () => void }) => {

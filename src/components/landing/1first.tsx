@@ -1,6 +1,6 @@
 import { TryOut } from "./elements/TryOut"
 import { RectangularTextReveal } from "./elements/textReveal"
-import heroVideo from "../../assets/videos/hero.mp4"
+import heroVideo from "../../assets/Videos/hero.mp4"
 
 const First = () => {
   return (

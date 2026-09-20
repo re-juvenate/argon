@@ -1,5 +1,5 @@
 import { DropKind, ModelTier, type DropModel } from "../../types/math";
-import { cause, note, pipe, resolve, retried, SDK_RETRIES, startDrop } from "../utilities";
+import { cause, mbps, note, pipe, resolve, retried, SDK_RETRIES, startDrop } from "../utilities";
 import { KINESIS_ASSUMED, KINESIS_DEFAULTS, shardCapacityMbps, type KinesisConfig } from "./throughput";
 
 // ProvisionedThroughputExceeded over the shard budget (SDK-retried).

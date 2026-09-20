@@ -1,5 +1,5 @@
 import { ModelTier, type ServiceModel } from "../../types/math";
-import { mbps, offered, pipe, resolve, splitEven } from "../utilities";
+import { mbps, offered, pipe, splitEven } from "../utilities";
 
 export interface VPCConfig {
   cidr?: string;

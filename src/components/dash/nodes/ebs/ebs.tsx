@@ -42,6 +42,7 @@ const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
         label="Size (GB)"
         min={1}
         max={16000}
+        defaultValue={EBS_DEFAULTS.sizeGb}
         value={c.sizeGb}
         onChange={(v) => patch({ sizeGb: v })}
       />
@@ -50,6 +51,7 @@ const EBS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
           label="Provisioned IOPS"
           min={3000}
           max={64000}
+          defaultValue={EBS_DEFAULTS.iops}
           value={c.iops}
           onChange={(v) => patch({ iops: v })}
         />

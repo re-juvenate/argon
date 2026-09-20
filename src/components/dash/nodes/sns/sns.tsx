@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
@@ -105,7 +105,7 @@ const SNS = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       name="SNS"
       icon={serviceIcon("sns.svg")}
       style={style}
-      visibleChildren={<PubSubFanout subscribers={config.subscribers} color={SERVICE_COLORS[ServiceType.SNS]} />}
+      visibleChildren={<PubSubFanout subscribers={config.subscribers ?? SNS_DEFAULTS.subscribers} color={SERVICE_COLORS[ServiceType.SNS]} />}
     >
       <Slider
         label="Subscribers"

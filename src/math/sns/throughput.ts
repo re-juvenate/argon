@@ -18,7 +18,7 @@ export const PUBLISH_RPS = 3000;
 export const model: ServiceModel<SNSConfig> = {
   defaults: SNS_DEFAULTS,
 
-  capacity(config) {
+  capacity() {
     return toMbps(PUBLISH_RPS, SNS_ASSUMED.msgBytes);
   },
 

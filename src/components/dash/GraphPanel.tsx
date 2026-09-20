@@ -113,7 +113,7 @@ function GridEvents({ items, onChange }: GridEventsProps) {
       if (height <= 0) return
       const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
       const cellH = Math.floor(height / maxRows)
-      grid.cellHeight(cellH, false) // false = don't force re-layout during resize
+      grid.cellHeight(cellH)
     }
 
     updateCellHeight()
@@ -126,7 +126,7 @@ function GridEvents({ items, onChange }: GridEventsProps) {
 
     return () => {
       observer.disconnect()
-      grid.off("added removed resizestop dragstop", updateCellHeight)
+      grid.off("added removed resizestop dragstop")
     }
   }, [grid])
 
@@ -183,7 +183,7 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
       margin: 0,
       float: true,
       animate: true,
-      draggable: true,
+      disableDrag: false,
       resizable: {
         handles: "se,sw,ne,nw,n,s,e,w",
       },

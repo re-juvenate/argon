@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Node from "../../Node";
@@ -80,7 +80,7 @@ const Kinesis = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       name="Kinesis"
       icon={serviceIcon("kinesis.svg")}
       style={style}
-      visibleChildren={<ShardStreams shards={config.shards} color={SERVICE_COLORS[ServiceType.Kinesis]} />}
+      visibleChildren={<ShardStreams shards={config.shards ?? KINESIS_DEFAULTS.shards} color={SERVICE_COLORS[ServiceType.Kinesis]} />}
     >
       <Slider
         label="Shards"

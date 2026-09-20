@@ -1,5 +1,5 @@
 import { ModelTier, type LatencyModel } from "../../types/math";
-import { ms, mmc, offeredMbps, sizeOf, start, toRps, wait } from "../utilities";
+import { ms, mmc, offeredMbps, resolve, sizeOf, start, toRps, wait } from "../utilities";
 import { RDS_ASSUMED, RDS_DEFAULTS, type RDSConfig } from "./throughput";
 
 // M/M/c over the connection pool: μ = 1/queryMs per connection.

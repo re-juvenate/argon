@@ -1,5 +1,5 @@
 import { ModelTier, type ServiceModel } from "../../types/math";
-import { bytes, cap, KiB, offered, pipe, resolve, sizeOf, splitEven, toMbps } from "../utilities";
+import { bytes, cap, KiB, offered, pipe, resolve, sizeOf, toMbps } from "../utilities";
 
 export interface DynamoDBConfig {
   readCapacityUnits?: number;

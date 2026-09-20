@@ -1,5 +1,5 @@
 import { ModelTier, type LatencyModel } from "../../types/math";
-import { ms, note, pipe, start, tail } from "../utilities";
+import { ms, note, pipe, resolve, start, tail } from "../utilities";
 import { DYNAMODB_DEFAULTS, type DynamoDBConfig } from "./throughput";
 
 // Documented single-digit millisecond performance.

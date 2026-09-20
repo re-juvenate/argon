@@ -1,4 +1,3 @@
-import React from "react"
 import { HoverImg } from "./elements/HoverImg"
 
 const Third = () => {

@@ -14,6 +14,7 @@ interface ProjectItem {
   title: string
   label: string
   imageSrc: string
+  type?: "image" | "video"
 }
 
 const defaultProjects: ProjectItem[] = [
@@ -140,7 +141,11 @@ export function HoverImg({ projects = defaultProjects, className, isContained = 
       <div className="hover-img-thumbnail-wrapper" ref={thumbnailRef} style={isContained ? { position: "absolute" } : undefined}>
         {projects.map((project, index) => (
           <div className="hover-img-thumbnail" key={index}>
-            <img src={project.imageSrc} alt={project.title} />
+            {project.type === "video" ? (
+              <video src={project.imageSrc} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+            ) : (
+              <img src={project.imageSrc} alt={project.title} />
+            )}
           </div>
         ))}
       </div>

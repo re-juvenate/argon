@@ -49,3 +49,8 @@
     display: none; /* Chrome, Safari and Opera */
   }
 }
+
+:root {
+  --driver-popover-font-family: "Space Grotesk", sans-serif;
+}
+

@@ -41,7 +41,10 @@ const Second = ({
   if (awsLogos.length === 0) return null
 
   return (
-    <section className="relative flex min-h-screen w-screen select-none flex-col overflow-hidden bg-white dark:bg-black py-8 md:h-screen transition-colors duration-300" aria-label={ariaLabel}>
+    <section
+      className="relative flex min-h-screen w-screen select-none flex-col overflow-hidden bg-white dark:bg-black py-8 md:h-screen transition-colors duration-300"
+      aria-label={ariaLabel}
+    >
       <div className="w-full">
         <LogoLoop
           logos={awsLogos}
@@ -58,8 +61,10 @@ const Second = ({
 
       <div className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-12 md:flex-row md:justify-between md:gap-8 md:px-20 md:py-0">
         <header className="w-full text-center max-w-xl md:text-left">
-          <h2 className="text-3xl font-bold tracking-tight text-emerald-500 sm:text-4xl mb-4">Review</h2>
-          <p className="text-base text-neutral-500 dark:text-gray-400 sm:text-xl transition-colors duration-300">Check how your application scales, and get a detailed report on your AWS resources.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-emerald-500 sm:text-4xl mb-4">Build</h2>
+          <p className="text-base text-neutral-500 dark:text-gray-400 sm:text-xl transition-colors duration-300">
+            Build your detailed architecture, with custom tooltip suggestions and configurations.
+          </p>
         </header>
 
         <div className="w-full max-w-md sm:max-w-xl md:w-1/2 md:max-w-none">

@@ -28,7 +28,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<ReadonlyMap<string, readonly NodeResult[]>>(() => new Map())
 
   const step = useCallback(() => {
-    const next = new Map(runtime.current.step(graphStore.get()))
+    const next = new Map(runtime.current.step(graphStore.committed()))
     const store = historyRef.current
     for (const id of store.keys()) if (!next.has(id)) store.delete(id)
     for (const [id, result] of next) {

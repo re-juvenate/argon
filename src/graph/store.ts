@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExtern
 import type { ServiceType } from "../types/math"
 import * as ops from "./graph"
 import { THROUGHPUT_MODELS } from "../math/simulate"
-import { emptyGraph, type GlobalDefaults, type Graph, type Position } from "./types"
+import { emptyGraph, type GlobalDefaults, type Graph, type GraphEdge, type GraphNode, type Position } from "./types"
 import { Runtime, type NodeResult } from "./walk"
 
 type Listener = () => void
@@ -48,6 +48,11 @@ class GraphStore {
   connect = (from: string, to: string) => this.set(ops.connect(this.graph, from, to))
   removeEdge = (id: string) => this.set(ops.removeEdge(this.graph, id))
   setEdgeBytes = (id: string, avgBytes: number | undefined) => this.set(ops.updateEdge(this.graph, id, { avgBytes }))
+
+  committed = () => ops.committed(this.graph)
+  suggest = (nodes: GraphNode[], edges: GraphEdge[]) => this.set(ops.suggest(this.graph, nodes, edges))
+  acceptSuggestion = () => this.set(ops.acceptSuggestion(this.graph))
+  rejectSuggestion = () => this.set(ops.committed(this.graph))
 
   toJSON = () => ops.toJSON(this.graph)
   fromJSON = (json: string) => this.set(ops.fromJSON(json))

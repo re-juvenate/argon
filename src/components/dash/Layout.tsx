@@ -59,6 +59,7 @@ import { graphStore, useGraph } from "#graph"
 import { SimulationProvider } from "./Simulation"
 import SimulationBar from "./SimulationBar"
 import GraphIo from "./GraphIo"
+import Completion from "./Completion"
 import BlenderAddMenu from "./BlenderAddMenu"
 import type { GraphNode } from "#graph/types"
 
@@ -600,7 +601,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
     const { x, y } = node.position ?? { x: 0, y: 0 }
 
     const content = (
-      <div data-island-id={node.id} data-selected={selectedIds.has(node.id) || undefined} className="contents">
+      <div data-island-id={node.id} data-selected={selectedIds.has(node.id) || undefined} data-suggested={node.suggested || undefined} className="contents">
         <Service id={node.id} style={!node.parentId || node.service === ServiceType.Region ? at(x, y) : undefined} />
       </div>
     )
@@ -662,6 +663,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
       <div className="absolute right-4 top-4 z-50 flex flex-col gap-2">
         <SimulationBar />
         <GraphIo />
+        <Completion />
       </div>
       <Viewport>
                 <div

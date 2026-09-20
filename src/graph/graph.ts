@@ -124,6 +124,29 @@ export function topoOrder(graph: Graph): { order: GraphNode[]; backEdges: GraphE
   return { order, backEdges }
 }
 
-export const toJSON = (graph: Graph): string => JSON.stringify(graph, null, 2)
+export const committed = (graph: Graph): Graph =>
+  graph.nodes.some((n) => n.suggested) || graph.edges.some((e) => e.suggested)
+    ? { ...graph, nodes: graph.nodes.filter((n) => !n.suggested), edges: graph.edges.filter((e) => !e.suggested) }
+    : graph
+
+export function suggest(graph: Graph, nodes: GraphNode[], edges: GraphEdge[]): Graph {
+  const base = committed(graph)
+  const ids = new Set(base.nodes.map((n) => n.id))
+  const fresh = nodes.filter((n) => !ids.has(n.id)).map((n) => ({ ...n, suggested: true }))
+  for (const n of fresh) ids.add(n.id)
+  const pairs = new Set(base.edges.map((e) => `${e.from}>${e.to}`))
+  const links = edges
+    .filter((e) => e.from !== e.to && ids.has(e.from) && ids.has(e.to) && !pairs.has(`${e.from}>${e.to}`))
+    .map((e) => ({ ...e, suggested: true }))
+  return { ...base, nodes: [...base.nodes, ...fresh], edges: [...base.edges, ...links] }
+}
+
+export const acceptSuggestion = (graph: Graph): Graph => ({
+  ...graph,
+  nodes: graph.nodes.map((n) => (n.suggested ? { ...n, suggested: undefined } : n)),
+  edges: graph.edges.map((e) => (e.suggested ? { ...e, suggested: undefined } : e)),
+})
+
+export const toJSON = (graph: Graph): string => JSON.stringify(committed(graph), null, 2)
 
 export const fromJSON = (json: string): Graph => graphSchema.parse(JSON.parse(json)) as Graph

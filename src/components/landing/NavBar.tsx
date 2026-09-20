@@ -161,12 +161,12 @@ export default function Navbar() {
   const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains("dark") || 
-                       (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    const isDarkMode = localStorage.getItem("theme") !== "light"
     
     setIsDark(isDarkMode)
     if (isDarkMode) {
       document.documentElement.classList.add("dark")
+      localStorage.setItem("theme", "dark")
     } else {
       document.documentElement.classList.remove("dark")
     }

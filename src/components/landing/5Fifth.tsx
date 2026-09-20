@@ -54,7 +54,7 @@ const Fifth = () => {
 
       {/* Center CTA */}
       <div className="relative z-10 pointer-events-auto">
-        <button className="group relative px-12 py-6 bg-black dark:bg-white text-white dark:text-black font-black text-5xl md:text-7xl tracking-tighter hover:scale-105 transition-transform duration-300 shadow-[0_0_80px_rgba(16,185,129,0.3)] hover:shadow-[0_0_120px_rgba(16,185,129,0.5)]">
+        <button className="group relative px-12 py-6 bg-black dark:bg-white text-white dark:text-black font-black text-5xl md:text-7xl tracking-tighter">
           Deploy the app!
         </button>
       </div>

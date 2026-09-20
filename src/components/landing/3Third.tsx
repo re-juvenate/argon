@@ -3,7 +3,11 @@ import { HoverImg } from "./elements/HoverImg"
 
 const Third = () => {
   return (
-    <div className="w-full bg-white dark:bg-black py-24 transition-colors duration-300">
+    <div className="w-full bg-white dark:bg-black py-16 md:py-24 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-6 mb-12 md:mb-16 text-center">
+        <h2 className="text-4xl md:text-5xl font-against text-black dark:text-white transition-colors duration-300">Features</h2>
+        <p className="text-neutral-500 dark:text-neutral-400 mt-4 text-base md:text-lg max-w-2xl mx-auto transition-colors duration-300">Everything you need to design, simulate, and deploy robust AWS cloud architectures.</p>
+      </div>
       <HoverImg
         projects={[
           {

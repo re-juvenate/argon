@@ -1,5 +1,5 @@
 .hover-img-container {
-  --hi-bg: #f2f2f2;
+  --hi-bg: transparent;
   --hi-text: #000000;
   --hi-text-muted: #666666;
   --hi-border: rgba(0, 0, 0, 0.15);
@@ -20,7 +20,7 @@
 /* Dark mode support */
 .dark .hover-img-container,
 :root[class~="dark"] .hover-img-container {
-  --hi-bg: #0a0a0a;
+  --hi-bg: transparent;
   --hi-text: #ffffff;
   --hi-text-muted: #999999;
   --hi-border: rgba(255, 255, 255, 0.2);
@@ -154,3 +154,24 @@
   height: 100px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
 }
+
+
+@media (max-width: 768px) {
+  .hover-img-project {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.5rem 1.5rem;
+    gap: 0.5rem;
+  }
+  .hover-img-project h2 {
+    font-size: 2rem;
+  }
+  .hover-img-project:hover h2,
+  .hover-img-project:hover p {
+    transform: none;
+  }
+  .hover-img-thumbnail-wrapper {
+    display: none !important;
+  }
+}
+

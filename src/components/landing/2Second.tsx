@@ -1,4 +1,3 @@
-import React from "react"
 import { clsx } from "clsx"
 import { serviceIcon, type ServiceIcon } from "../dash/icons"
 
@@ -20,7 +19,7 @@ const Second = ({
 
       const cleanTitle = name
         .replace(".svg", "")
-        .replace(/([A-Z0-9])/g, " \$1")
+        .replace(/([A-Z0-9])/g, " $1")
         .toUpperCase()
         .trim()
 

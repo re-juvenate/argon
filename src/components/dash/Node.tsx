@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type CSSPropert
 import { CaretDownIcon, CaretUpIcon, CreditCardIcon } from "@phosphor-icons/react/dist/ssr"
 import clsx from "clsx"
 import { useIsland } from "./Island"
-import { Socket } from "./Edge"
+import { Socket, useEdgeApi } from "./Edge"
 import { SparkAreaChart } from "@tremor/react"
 import { SocketType } from "../../types/nodes"
 import Stats, { sparkData, startGraphDrag } from "./Stats"
@@ -51,6 +51,7 @@ export default function Node({
   const [draft, setDraft] = useState(name)
   const editRef = useRef<HTMLInputElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
+  const edgeApi = useEdgeApi()
   const instance = useContext(InstanceCtx)
   const shown = instance ? NO_SOCKETS : sockets
   const { result, history } = useNodeResult(id)
@@ -92,6 +93,15 @@ export default function Node({
       onPointerDown={(e) => {
         e.stopPropagation()
         onSelect?.()
+        
+        if (id && edgeApi?.pending) {
+          const pendingType = edgeApi.pending.dataset.socket
+          const targetType = pendingType === SocketType.Output ? SocketType.Input : SocketType.Output
+          const targetSocket = e.currentTarget.querySelector(`[data-socket="${targetType}"]`) as HTMLElement
+          if (targetSocket) {
+            edgeApi.grab(targetSocket)
+          }
+        }
       }}
       className={clsx(
         "w-fit min-w-48 h-auto border border-border flex flex-col bg-node pb-2 gap-2 relative mt-7",

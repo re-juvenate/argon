@@ -39,7 +39,8 @@ interface EdgeApi {
   pending: HTMLElement | null;
 }
 
-const EdgeCtx = createContext<EdgeApi | null>(null);
+export const EdgeCtx = createContext<EdgeApi | null>(null);
+export const useEdgeApi = () => useContext(EdgeCtx);
 
 interface SocketApi {
   ref: (el: HTMLElement | null) => void;

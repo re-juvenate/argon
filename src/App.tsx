@@ -1,24 +1,47 @@
+import { RouterProvider, createRouter, createRoute, createRootRoute, Outlet } from '@tanstack/react-router'
 import Layout from "./components/dash/Layout"
-import Graph, { type ChartDataItem } from "./components/dash/nodeoptions/graph"
+import Landing from "./components/landing/landing"
 import ColorButton from "./components/dash/ColorButton"
 
-const App = () => {
-  const mockChartData: ChartDataItem[] = [
-    { time: "10:00", Throughput: 120, Time: 45 },
-    { time: "10:05", Throughput: 145, Time: 42 },
-    { time: "10:10", Throughput: 130, Time: 50 },
-    { time: "10:15", Throughput: 165, Time: 48 },
-    { time: "10:20", Throughput: 190, Time: 39 },
-    { time: "10:25", Throughput: 175, Time: 41 },
-    { time: "10:30", Throughput: 210, Time: 35 },
-  ]
+// Define the root route
+const rootRoute = createRootRoute({
+  component: () => <Outlet />
+})
 
-  return (
+// Define the index route (/)
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: Landing,
+})
+
+// Define the /graph route
+const graphRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/graph',
+  component: () => (
     <div className="bg-background h-screen w-screen overflow-hidden">
       <Layout />
       {/*<ColorButton />*/}
     </div>
-  )
+  ),
+})
+
+// Create the route tree
+const routeTree = rootRoute.addChildren([indexRoute, graphRoute])
+
+// Create the router
+const router = createRouter({ routeTree })
+
+// Register your router for maximum type safety
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
+
+const App = () => {
+  return <RouterProvider router={router} />
 }
 
 export default App

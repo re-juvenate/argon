@@ -8,7 +8,7 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(useGSAP)
 }
 
-const BRAND = "SOHub"
+const BRAND = "Argon"
 
 interface NavLinkItem {
   label: string
@@ -48,7 +48,7 @@ const NEWS: NewsItem[] = [
     source: "Awwwards",
     date: "Jun. 7",
     year: 2026,
-    description: "SOHub received a Site of the Day award on awwwards.",
+    description: "Argon",
     type: "Award",
     href: "#",
     logo: { text: "w.", className: "bg-[#ff5a26] text-white text-8xl font-black" },

@@ -7,11 +7,17 @@
    fill disappears. Safelist what the charts actually use. */
 @source inline("{dark:}{text,stroke,fill}-emerald-{400,500}");
 
+@font-face {
+  font-family: "Against";
+  src: url("/fonts/against-regular.otf") format("opentype");
+}
+
 @theme inline {
   --color-node: #303030;
   --color-background: #1a1a1a;
   --color-border: #444444;
   --color-blueprimary: #477cb9;
+  --font-against: "Against", sans-serif;
 }
 
 [data-selected] > [data-id] {

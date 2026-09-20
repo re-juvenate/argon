@@ -108,6 +108,7 @@ export const Socket = ({ type }: { type: SocketType }) => {
       onCopy={(e) => e.preventDefault()}
       className={cn(
         "absolute top-1/2 z-10 h-3 w-3 -translate-y-1/2 cursor-crosshair rounded-full border border-border transition-colors select-none [-webkit-user-drag:none]",
+        "before:absolute before:-inset-4 before:content-[''] before:rounded-full",
         type === SocketType.Input ? "-left-[7px]" : "-right-[7px]",
         socket.isPending ? "bg-blueprimary" : "bg-node hover:bg-[#999999]",
       )}

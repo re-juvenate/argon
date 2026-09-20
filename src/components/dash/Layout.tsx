@@ -25,7 +25,7 @@ import { InstanceCtx } from "./Node"
 import Viewport from "./Viewport"
 import { GRAPH_MIME, Metric, METRICS, type GraphPayload } from "./metrics"
 import ContextMenu, { type MenuAt, type MenuItem } from "./ContextMenu"
-import { ChartLineIcon, PencilSimpleIcon, SquaresFourIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { ChartLineIcon, PencilSimpleIcon, SquaresFourIcon, TrashIcon, Copy } from "@phosphor-icons/react/dist/ssr"
 
 gsap.registerPlugin(Draggable, InertiaPlugin)
 
@@ -201,8 +201,10 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
 
   const [docked, setDocked] = useState<Docked[]>(DEFAULT_DOCKED)
   const [menu, setMenu] = useState<{ at: MenuAt; node: GraphNode } | null>(null)
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
   const [dockedMenu, setDockedMenu] = useState<{ at: MenuAt; id: string } | null>(null)
   const [search, setSearch] = useState("")
+  const [blenderDragNodeId, setBlenderDragNodeId] = useState<string | null>(null)
 
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase()
@@ -275,14 +277,32 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
     setSelectedIds(new Set())
   }, [selectedIds, setSelectedIds])
 
+  const pointerRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      pointerRef.current = { x: e.clientX, y: e.clientY }
+    }
+    window.addEventListener("mousemove", move)
+    return () => window.removeEventListener("mousemove", move)
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!DELETION_KEYS.has(e.key)) return
       const target = e.target as HTMLElement | null
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) {
         return
       }
-      deleteSelected()
+
+      if (e.key.toLowerCase() === "a" && e.shiftKey) {
+        e.preventDefault()
+        setAddMenu(pointerRef.current)
+        return
+      }
+
+      if (DELETION_KEYS.has(e.key)) {
+        deleteSelected()
+      }
     }
 
     window.addEventListener("keydown", onKeyDown)
@@ -571,7 +591,7 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
           }}
           onDrop={onGraphDrop}
         >
-          <section className="flex-1 min-h-0 w-full relative overflow-y-auto overflow-x-hidden p-4" onContextMenu={onDockedContextMenu}>
+          <section className="flex-1 min-h-0 w-full relative overflow-hidden p-4" onContextMenu={onDockedContextMenu}>
             {docked.length === 0 && (
               <div className="absolute inset-0 grid place-items-center text-sm text-neutral-500 font-mono select-none pointer-events-none">
                 Drag a graph from a service to view the graphs here
@@ -600,6 +620,33 @@ function Editor({ selectedIds, setSelectedIds, hovering, setHovering }: EditorPr
             },
           ]}
           onClose={() => setDockedMenu(null)}
+        />
+      )}
+
+      {addMenu && (
+        <ContextMenu
+          at={addMenu}
+          items={PALETTE.map((item) => ({
+            label: SERVICE_LABELS[item.service] || item.service,
+            icon: item.icon ? <img src={item.icon} alt="" className="w-4 h-4 object-contain" /> : undefined,
+            onSelect: () => {
+              const board = document.querySelector("[data-island-board]") as HTMLElement
+              if (board) {
+                const rect = board.getBoundingClientRect()
+                const scale = board.offsetWidth > 0 ? rect.width / board.offsetWidth : 1
+                const frame = document
+                  .elementsFromPoint(addMenu.x, addMenu.y)
+                  .map((element) => (element as HTMLElement).closest<HTMLElement>("[data-frame]"))
+                  .find(Boolean)
+                const parentId = frame?.dataset.frame ?? null
+                const x = (addMenu.x - rect.left) / scale - 32
+                const y = (addMenu.y - rect.top) / scale - 32
+                graphStore.addNode(item.service, { x, y }, parentId)
+              }
+              setAddMenu(null)
+            }
+          }))}
+          onClose={() => setAddMenu(null)}
         />
       )}
 

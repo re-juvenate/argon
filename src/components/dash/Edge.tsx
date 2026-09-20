@@ -196,16 +196,36 @@ export default function EdgeLayer({ children }: { children: ReactNode }) {
       const dy = event.clientY - dragStart.current.y;
       if (Math.hypot(dx, dy) < 5) return; // Allow click-to-connect to continue
 
-      const hit = document
+      const hitSocket = document
         .elementsFromPoint(event.clientX, event.clientY)
         .map((el) => (el as HTMLElement).closest<HTMLElement>("[data-socket]"))
         .find(Boolean);
 
-      if (hit && hit !== pending) {
-        api.grab(hit);
-      } else {
-        setPending(null);
+      if (hitSocket && hitSocket !== pending) {
+        api.grab(hitSocket);
+        return;
       }
+
+      // If dropped on a node, connect to its opposite socket
+      const hitNode = document
+        .elementsFromPoint(event.clientX, event.clientY)
+        .map((el) => (el as HTMLElement).closest<HTMLElement>("[data-node]"))
+        .find(Boolean);
+
+      const targetId = hitNode ? nodeIdOf(hitNode) : undefined;
+      if (targetId) {
+        const sourceType = typeOf(pending);
+        const targetSocket = sourceType === SocketType.Output 
+          ? inputs.current.get(targetId) 
+          : outputs.current.get(targetId);
+          
+        if (targetSocket && targetSocket !== pending) {
+          api.grab(targetSocket);
+          return;
+        }
+      }
+
+      setPending(null);
     };
 
     window.addEventListener("pointerdown", cancel);

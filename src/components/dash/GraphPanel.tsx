@@ -67,8 +67,59 @@ function GridEvents({ items, onChange }: GridEventsProps) {
   useEffect(() => {
     if (!grid) return
 
+    // Add missing widgets
+    const existingIds = new Set(grid.engine.nodes.map((n) => String(n.id)))
+    items.forEach((item) => {
+      if (!existingIds.has(item.id)) {
+        grid.addWidget({
+          id: item.id,
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+          ...({
+            component: "GraphWidget",
+            props: {
+              id: item.id,
+              nodeId: item.nodeId,
+              metric: item.metric,
+              name: item.name,
+              color: item.color,
+            },
+          } as any),
+        })
+      }
+    })
+
+    // Remove deleted widgets
+    const itemIds = new Set(items.map((i) => i.id))
+    const toRemove = grid.engine.nodes.filter((n) => n.id && !itemIds.has(String(n.id)))
+    toRemove.forEach((n) => {
+      if (n.el) grid.removeWidget(n.el)
+    })
+
+    const updateBounds = () => {
+      const height = grid.el.clientHeight
+      if (height <= 0) return
+
+      // Find the maximum logical row any widget reaches
+      const maxRows = Math.max(1, grid.engine.nodes.reduce((max, n) => Math.max(max, (n.y ?? 0) + (n.h ?? 1)), 1))
+
+      // Dynamically size the cells so they perfectly fill the visible height
+      const newCellHeight = Math.floor(height / maxRows)
+      grid.cellHeight(newCellHeight)
+    }
+
+    updateBounds()
+
+    const observer = new ResizeObserver(updateBounds)
+    observer.observe(grid.el)
+
+    grid.on("added removed change", updateBounds)
+
     return () => {
-      // Clean up if needed
+      observer.disconnect()
+      grid.off("added removed change", updateBounds)
     }
   }, [grid, items])
 
@@ -129,23 +180,8 @@ export function DockedGraphPanel({ items, onChange }: DockedGraphPanelProps) {
       resizable: {
         handles: "se,sw,ne,nw,n,s,e,w",
       },
-      children: items.map((item) => ({
-        id: item.id,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-        component: "GraphWidget",
-        props: {
-          id: item.id,
-          nodeId: item.nodeId,
-          metric: item.metric,
-          name: item.name,
-          color: item.color,
-        },
-      })),
     }),
-    [items],
+    [],
   )
 
   return (

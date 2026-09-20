@@ -4,7 +4,8 @@ FastAPI service with a Pulumi connector that deploys EC2 or App Runner, optional
 
 ```sh
 uv sync
-uv run uvicorn main:app --app-dir src --reload
+cp .env.local.example .env.local   # fill GROQ_API_KEY etc.
+uv run --env-file .env.local uvicorn main:app --app-dir src --reload
 uv run pytest --cov=src
 ```
 

@@ -58,7 +58,7 @@ const Second = ({
 
       <div className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-12 md:flex-row md:justify-between md:gap-8 md:px-20 md:py-0">
         <header className="w-full text-center max-w-xl md:text-left">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-4">Review</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl mb-4">Review</h2>
           <p className="text-base text-gray-400 sm:text-xl">Check how your application scales, and get a detailed report on your AWS resources.</p>
         </header>
 

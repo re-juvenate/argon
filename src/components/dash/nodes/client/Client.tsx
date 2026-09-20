@@ -5,6 +5,7 @@ import { ServiceType } from "../../../../types/math"
 import { SocketType } from "../../../../types/nodes"
 import { CLIENT_DEFAULTS, type ClientConfig } from "#math/client/throughput"
 import { SERVICE_COLORS } from "../../colors"
+import { serviceIcon } from "../../icons"
 import Slider from "../../nodeoptions/slider"
 
 const OUTPUT_ONLY = [SocketType.Output]
@@ -17,6 +18,7 @@ const Client = ({ style, id }: { style?: CSSProperties; id?: string }) => {
       id={nodeId}
       name="Client"
       color={SERVICE_COLORS[ServiceType.Client]}
+      icon={serviceIcon("client.svg")}
       style={style}
       sockets={OUTPUT_ONLY}
       visibleChildren={<span className="text-xs text-[#999999]">{config.rps} req/s</span>}

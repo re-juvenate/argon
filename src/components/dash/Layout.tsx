@@ -89,7 +89,7 @@ const SERVICE_ICON_FILES: Record<ServiceType, string | undefined> = {
   [ServiceType.CloudFront]: "cloudfront.svg",
   [ServiceType.Route53]: "route53.svg",
   [ServiceType.Aurora]: "aurora.svg",
-  [ServiceType.Client]: undefined,
+  [ServiceType.Client]: "client.svg",
   [ServiceType.Region]: "region.svg",
 }
 
